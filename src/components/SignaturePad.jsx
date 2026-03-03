@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 export default function SignaturePad({ value, onChange, label = 'Signature', placeholder = 'Please sign here' }) {
   const canvasRef = useRef(null);
+  const wrapperRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const hasDrawnRef = useRef(false);
 
@@ -9,13 +10,13 @@ export default function SignaturePad({ value, onChange, label = 'Signature', pla
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const touch = e.touches?.[0] || e.changedTouches?.[0];
+    const clientX = touch ? touch.clientX : e.clientX;
+    const clientY = touch ? touch.clientY : e.clientY;
     return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
+      // After we apply DPR transform to the context, we draw in CSS pixels.
+      x: clientX - rect.left,
+      y: clientY - rect.top,
     };
   }, []);
 
@@ -67,23 +68,55 @@ export default function SignaturePad({ value, onChange, label = 'Signature', pla
     onChange?.('');
   }, [onChange]);
 
-  useEffect(() => {
+  const setupCanvas = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const wrapper = wrapperRef.current;
+    if (!canvas || !wrapper) return;
 
     const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width && rect.height) {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.floor(rect.width * dpr);
-      canvas.height = Math.floor(rect.height * dpr);
-      ctx.scale(dpr, dpr);
-    }
+    if (!ctx) return;
+
+    const rect = wrapper.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = 112;
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    // Draw using CSS pixel coordinates.
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
     ctx.strokeStyle = '#111827';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-  }, []);
+
+    // If we have a saved signature, redraw it after resize.
+    if (value) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+      };
+      img.src = value;
+    }
+  }, [value]);
+
+  useEffect(() => {
+    setupCanvas();
+
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const ro = new ResizeObserver(() => setupCanvas());
+    ro.observe(wrapper);
+
+    return () => ro.disconnect();
+  }, [setupCanvas]);
 
   return (
     <div className="space-y-1">
@@ -91,11 +124,13 @@ export default function SignaturePad({ value, onChange, label = 'Signature', pla
         <label className="block text-sm font-medium text-gray-700">{label}</label>
       )}
       <p className="text-xs text-gray-500 mb-1">{placeholder}</p>
-      <div className="border border-gray-300 rounded-lg bg-gray-50 overflow-hidden min-h-[7rem]">
+      <div
+        ref={wrapperRef}
+        className="border border-gray-300 rounded-lg bg-gray-50 overflow-hidden min-h-[7rem]"
+      >
         <canvas
           ref={canvasRef}
           className="w-full touch-none cursor-crosshair block"
-          style={{ width: '100%', height: '112px', display: 'block' }}
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}
