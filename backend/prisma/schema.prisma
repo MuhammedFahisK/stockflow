@@ -1,0 +1,204 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users   User[]
+  roles   Role[]
+  products Product[]
+  incomingInvoices IncomingInvoice[]
+  outgoingInvoices OutgoingInvoice[]
+  returnRecords    ReturnRecord[]
+}
+
+model User {
+  id          String      @id @default(cuid())
+  companyId   String
+  name        String
+  email       String      @unique
+  passwordHash String
+  status      String      @default("active")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  company   Company   @relation(fields: [companyId], references: [id])
+  userRoles UserRole[]
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+
+  company        Company        @relation(fields: [companyId], references: [id])
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String?
+
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  barcode   String   @unique
+  unit      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+  batches ProductBatch[]
+  incomingItems IncomingLineItem[]
+  outgoingItems OutgoingLineItem[]
+  returnItems   ReturnLineItem[]
+}
+
+model ProductBatch {
+  id         String   @id @default(cuid())
+  productId  String
+  batchNo    String
+  mfgDate    DateTime
+  expDate    DateTime
+  initialQty Int
+  createdAt  DateTime @default(now())
+
+  product       Product          @relation(fields: [productId], references: [id])
+  incomingItems IncomingLineItem[]
+  outgoingItems OutgoingLineItem[]
+  returnItems   ReturnLineItem[]
+}
+
+model IncomingInvoice {
+  id               String   @id @default(cuid())
+  companyId        String
+  invoiceNo        String
+  ewayBillNo       String?
+  vehicleReleasedAt DateTime?
+  warehouseLocation String?
+  supervisorName    String?
+  supervisorSignature String?
+  accountsSignature   String?
+  createdAt         DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  items   IncomingLineItem[]
+}
+
+model IncomingLineItem {
+  id              String   @id @default(cuid())
+  incomingInvoiceId String
+  productId       String
+  productBatchId  String
+  itemScan        String
+  qtyReceived     Int
+  rejectedQty     Int      @default(0)
+  discrepancyReason String?
+  batchNumber     String
+  expiryDate      DateTime
+  whLocation      String?
+
+  invoice IncomingInvoice @relation(fields: [incomingInvoiceId], references: [id])
+  product Product         @relation(fields: [productId], references: [id])
+  batch   ProductBatch    @relation(fields: [productBatchId], references: [id])
+}
+
+model OutgoingInvoice {
+  id               String   @id @default(cuid())
+  companyId        String
+  invoiceNo        String
+  ewayBillNo       String?
+  vehicleReleasedAt DateTime?
+  warehouseLocation String?
+  supervisorName    String?
+  supervisorSignature String?
+  accountsSignature   String?
+  createdAt         DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  items   OutgoingLineItem[]
+}
+
+model OutgoingLineItem {
+  id               String   @id @default(cuid())
+  outgoingInvoiceId String
+  productId        String
+  productBatchId   String
+  itemScan         String
+  qtyDispatched    Int
+  batchNumber      String
+  expiryDate       DateTime
+
+  invoice OutgoingInvoice @relation(fields: [outgoingInvoiceId], references: [id])
+  product Product         @relation(fields: [productId], references: [id])
+  batch   ProductBatch    @relation(fields: [productBatchId], references: [id])
+}
+
+model ReturnRecord {
+  id         String   @id @default(cuid())
+  companyId  String
+  sourceType String
+  invoiceNo  String?
+  returnDate DateTime
+  action     String
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  items   ReturnLineItem[]
+}
+
+model ReturnLineItem {
+  id             String   @id @default(cuid())
+  returnRecordId String
+  productId      String
+  productBatchId String
+  barcode        String
+  qty            Int
+  mfgDate        DateTime
+  expDate        DateTime
+
+  returnRecord ReturnRecord @relation(fields: [returnRecordId], references: [id])
+  product      Product      @relation(fields: [productId], references: [id])
+  batch        ProductBatch @relation(fields: [productBatchId], references: [id])
+}
