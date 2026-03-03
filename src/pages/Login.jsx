@@ -4,6 +4,7 @@ import { auth } from '../config/firebase';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, ArrowRight } from 'lucide-react';
 import LogoMark from '../components/LogoMark';
+import { logActivity } from '../utils/activityLogger';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -18,7 +19,9 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const res = await signInWithEmailAndPassword(auth, email, password);
+      // record login activity
+      logActivity({ userId: res.user.uid, company: process.env.VITE_FIREBASE_PROJECT_ID, action: 'login' });
       navigate('/');
     } catch (err) {
       setError(err.message);

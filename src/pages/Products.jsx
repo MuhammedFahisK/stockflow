@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
 import {
   collection,
   addDoc,
@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { Trash2, Edit2, Plus, Search, Download, Camera, ChevronDown, ChevronUp } from 'lucide-react';
 import { exportToExcel } from '../utils/excelExport';
 import { PERMISSIONS, hasPermission } from '../utils/permissions';
+import { logActivity } from '../utils/activityLogger';
 import BarcodeScannerDialog from '../components/BarcodeScannerDialog';
 
 export default function Products() {
@@ -113,12 +114,24 @@ export default function Products() {
           ...payload,
           updatedAt: new Date(),
         });
+        logActivity({
+          userId: auth?.currentUser?.uid || null,
+          company: userCompany,
+          action: 'product:update',
+          details: `id=${editingProduct.id} name=${payload.productName}`,
+        });
       } else {
-        await addDoc(collection(db, 'products'), {
+        const docRef = await addDoc(collection(db, 'products'), {
           ...payload,
           company: userCompany,
           createdAt: new Date(),
           updatedAt: new Date(),
+        });
+        logActivity({
+          userId: auth?.currentUser?.uid || null,
+          company: userCompany,
+          action: 'product:create',
+          details: `id=${docRef.id} name=${payload.productName}`,
         });
       }
       fetchProducts();
@@ -154,6 +167,12 @@ export default function Products() {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         await deleteDoc(doc(db, 'products', id));
+        logActivity({
+          userId: auth?.currentUser?.uid || null,
+          company: userCompany,
+          action: 'product:delete',
+          details: `id=${id}`,
+        });
         fetchProducts();
       } catch (error) {
         console.error('Error deleting product:', error);

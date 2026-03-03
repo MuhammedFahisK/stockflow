@@ -14,6 +14,7 @@ import Returns from "./pages/Returns";
 import Users from "./pages/Users";
 import Roles from "./pages/Roles";
 import Companies from "./pages/Companies";
+import Activity from "./pages/Activity";
 
 
 function App() {
@@ -40,6 +41,7 @@ function App() {
             <Route path="returns" element={<Returns />} />
             <Route path="users" element={<Users />} />
             <Route path="roles" element={<Roles />} />
+            <Route path="activity" element={<Activity />} />
             <Route path="companies" element={<Companies />} />
           </Route>
         </Routes>

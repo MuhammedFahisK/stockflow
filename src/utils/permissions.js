@@ -36,6 +36,9 @@ export const PERMISSIONS = {
   // Reports
   REPORTS_READ: 'reports:read',
   REPORTS_EXPORT: 'reports:export',
+
+  // Activity / audit
+  ACTIVITY_READ: 'activity:read',
 };
 
 export const ROLE_PERMISSIONS = {

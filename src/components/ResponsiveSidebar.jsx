@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Activity,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +30,14 @@ export default function Sidebar() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
+    // record activity before signing out
+    try {
+      await import('../utils/activityLogger').then((m) => {
+        m.logActivity({ userId: user?.uid || null, company: userCompany, action: 'logout' });
+      });
+    } catch (e) {
+      console.warn('failed to log logout', e);
+    }
     await logout();
     navigate('/login');
   };
@@ -78,6 +87,12 @@ export default function Sidebar() {
       to: '/roles',
       icon: Shield,
       permission: PERMISSIONS.ROLES_MANAGE,
+    },
+    {
+      label: 'Activity Log',
+      to: '/activity',
+      icon: Activity,
+      permission: PERMISSIONS.ACTIVITY_READ,
     },
     {
       label: 'Companies',

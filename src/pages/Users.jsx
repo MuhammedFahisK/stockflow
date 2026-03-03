@@ -14,6 +14,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import { Plus, X, Edit2, Trash2, Mail, User } from 'lucide-react';
 import { PERMISSIONS, hasPermission, ROLE_PERMISSIONS, ROLE_LABELS } from '../utils/permissions';
+import { logActivity } from '../utils/activityLogger';
 
 export default function Users() {
   const { userCompany, userRole } = useAuth();
@@ -68,6 +69,12 @@ export default function Users() {
           fullName: formData.fullName,
           role: formData.role,
         });
+        logActivity({
+          userId: auth?.currentUser?.uid || null,
+          company: userCompany,
+          action: 'user:update',
+          details: `id=${editingUser.id} name=${formData.fullName}`,
+        });
       } else {
         // Create new user
         const { user } = await createUserWithEmailAndPassword(
@@ -76,7 +83,7 @@ export default function Users() {
           formData.password
         );
 
-        await addDoc(collection(db, 'users'), {
+        const ref = await addDoc(collection(db, 'users'), {
           uid: user.uid,
           email: formData.email,
           fullName: formData.fullName,
@@ -84,6 +91,12 @@ export default function Users() {
           company: userCompany,
           status: 'active',
           createdAt: new Date(),
+        });
+        logActivity({
+          userId: auth?.currentUser?.uid || null,
+          company: userCompany,
+          action: 'user:create',
+          details: `id=${ref.id} name=${formData.fullName}`,
         });
       }
 
@@ -116,8 +129,12 @@ export default function Users() {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        await deleteDoc(doc(db, 'users', id));
-        fetchUsers();
+        await deleteDoc(doc(db, 'users', id));        logActivity({
+          userId: auth?.currentUser?.uid || null,
+          company: userCompany,
+          action: 'user:delete',
+          details: `id=${id}`,
+        });        fetchUsers();
       } catch (error) {
         console.error('Error deleting user:', error);
         alert('Error deleting user');
