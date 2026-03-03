@@ -98,7 +98,7 @@ export default function Sidebar() {
       label: 'Companies',
       to: '/companies',
       icon: Building2,
-      permission: PERMISSIONS.COMPANIES_MANAGE,
+      permission: null, // visible to all; only SUPER_ADMIN sees Add button
     },
   ];
 
@@ -123,9 +123,8 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <div
-        className={`fixed md:relative w-64 h-screen bg-white border-r border-gray-200 flex flex-col z-40 transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className={`fixed md:relative w-64 h-screen bg-white border-r border-gray-200 flex flex-col z-40 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
       >
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
@@ -164,9 +163,8 @@ export default function Sidebar() {
                           setCompanyMenuOpen(false);
                           setIsOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
-                          name === userCompany ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'
-                        }`}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${name === userCompany ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'
+                          }`}
                       >
                         {name}
                       </button>
@@ -243,10 +241,9 @@ export default function Sidebar() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `${linkClass} ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-600 font-semibold'
-                      : 'hover:bg-gray-100'
+                  `${linkClass} ${isActive
+                    ? 'bg-blue-50 text-blue-600 font-semibold'
+                    : 'hover:bg-gray-100'
                   }`
                 }
                 onClick={() => setIsOpen(false)}

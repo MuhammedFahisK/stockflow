@@ -43,25 +43,18 @@ export const AuthProvider = ({ children }) => {
     const loadCompanies = async () => {
       if (!user) return;
 
-      // SUPER_ADMIN can see all companies; others only their assigned company.
-      if (userRole === 'SUPER_ADMIN') {
-        const snap = await getDocs(collection(db, 'companies'));
-        const list = snap.docs
-          .map((d) => d.data()?.name)
-          .filter(Boolean)
-          .sort((a, b) => String(a).localeCompare(String(b)));
-        setCompanies(list);
+      // Fetch all companies so any user can select them
+      const snap = await getDocs(collection(db, 'companies'));
+      const list = snap.docs
+        .map((d) => d.data()?.name)
+        .filter(Boolean)
+        .sort((a, b) => String(a).localeCompare(String(b)));
+      setCompanies(list);
 
-        if (!userCompany && list.length > 0) {
-          setUserCompany(list[0]);
-          localStorage.setItem(SELECTED_COMPANY_KEY, list[0]);
-        }
-        return;
-      }
-
-      // Default: single company
-      if (userCompany) {
-        setCompanies([userCompany]);
+      // If no company is selected yet, default to the first available
+      if (!userCompany && list.length > 0) {
+        setUserCompany(list[0]);
+        localStorage.setItem(SELECTED_COMPANY_KEY, list[0]);
       }
     };
 

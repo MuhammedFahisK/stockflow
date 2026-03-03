@@ -18,7 +18,7 @@ import { PERMISSIONS, hasPermission } from '../utils/permissions';
 import SignaturePad from '../components/SignaturePad';
 
 export default function Outgoing() {
-  const { userCompany, userRole } = useAuth();
+  const { user, userCompany, userRole } = useAuth();
   const [shipments, setShipments] = useState([]);
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -48,6 +48,51 @@ export default function Outgoing() {
     accountsSignature: '',
     vehicleNo: '',
     notes: '',
+    checklist: {
+      invoiceChecklist: {
+        invoiceNoVerified: false,
+        ewayBillVerified: false,
+      },
+      productDetails: {
+        totalQtyVerified: false,
+        batchExpVerified: false,
+      },
+      driverDetails: {
+        driverNamePhoneVerified: false,
+        vehicleNoVerified: false,
+      },
+      docsToDriver: {
+        originalInvoice: false,
+        eWayBillCopy: false,
+        deliveryChallan: false,
+        gatePass: false,
+      },
+      finalConfirmation: {
+        qtyRecountMatches: false,
+        docsAttached: false,
+        driverBriefed: false,
+        tripSheetGiven: false,
+      },
+      driverChecklist: {
+        tripSheet: false,
+        license: false,
+        insurance: false,
+        fitness: false,
+        pollution: false,
+        fastag: false,
+        permit: false,
+        vehicleCondition: false,
+        poVerified: false,
+        sealsFixed: false,
+        supervisorSigned: false,
+      },
+      certifications: {
+        supervisorName: '',
+        accountantName: '',
+        supplyChainExecName: '',
+        accountsManagerName: '',
+      }
+    }
   });
 
   const canCreate = hasPermission(userRole, PERMISSIONS.OUTGOING_CREATE);
@@ -184,10 +229,14 @@ export default function Outgoing() {
         return;
       }
 
+      const createdBy =
+        user?.displayName || user?.email || user?.uid || '';
+
       await addDoc(collection(db, 'outgoingStock'), {
         ...formData,
         items: validItems,
         company: userCompany,
+        createdBy,
         createdAt: Timestamp.now(),
         status: 'dispatched',
       });
@@ -216,6 +265,51 @@ export default function Outgoing() {
         accountsSignature: '',
         vehicleNo: '',
         notes: '',
+        checklist: {
+          invoiceChecklist: {
+            invoiceNoVerified: false,
+            ewayBillVerified: false,
+          },
+          productDetails: {
+            totalQtyVerified: false,
+            batchExpVerified: false,
+          },
+          driverDetails: {
+            driverNamePhoneVerified: false,
+            vehicleNoVerified: false,
+          },
+          docsToDriver: {
+            originalInvoice: false,
+            eWayBillCopy: false,
+            deliveryChallan: false,
+            gatePass: false,
+          },
+          finalConfirmation: {
+            qtyRecountMatches: false,
+            docsAttached: false,
+            driverBriefed: false,
+            tripSheetGiven: false,
+          },
+          driverChecklist: {
+            tripSheet: false,
+            license: false,
+            insurance: false,
+            fitness: false,
+            pollution: false,
+            fastag: false,
+            permit: false,
+            vehicleCondition: false,
+            poVerified: false,
+            sealsFixed: false,
+            supervisorSigned: false,
+          },
+          certifications: {
+            supervisorName: '',
+            accountantName: '',
+            supplyChainExecName: '',
+            accountsManagerName: '',
+          }
+        }
       });
     } catch (error) {
       console.error('Error saving shipment:', error);
@@ -587,19 +681,34 @@ export default function Outgoing() {
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Qty Dispatched *
-                        </label>
-                        <input
-                          type="number"
-                          value={item.qtyDispatched}
-                          onChange={(e) =>
-                            handleItemChange(index, 'qtyDispatched', e.target.value)
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                          required
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Qty Dispatched *
+                          </label>
+                          <input
+                            type="number"
+                            value={item.qtyDispatched}
+                            onChange={(e) =>
+                              handleItemChange(index, 'qtyDispatched', e.target.value)
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                            required
+                          />
+                        </div>
+                        <div className="flex items-center mt-1 md:mt-6">
+                          <label className="inline-flex items-center text-xs font-medium text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={item.verified || false}
+                              onChange={(e) =>
+                                handleItemChange(index, 'verified', e.target.checked)
+                              }
+                              className="w-4 h-4 border border-gray-300 rounded mr-2"
+                            />
+                            Qty matches invoice / dispatch checklist done
+                          </label>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -611,6 +720,233 @@ export default function Outgoing() {
                   >
                     + Add Another Item
                   </button>
+                </div>
+
+                {/* Checklist Section */}
+                <div className="border-t pt-6">
+                  <h4 className="font-bold mb-4 text-xl text-orange-800 flex items-center gap-2">
+                    <span className="bg-orange-100 p-2 rounded-lg">📋</span>
+                    Dispatch & Driver Checklist
+                  </h4>
+
+                  <div className="space-y-6">
+                    {/* Warehouse Dispatch Checklist */}
+                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                      <h5 className="font-bold text-orange-900 mb-3 text-sm uppercase tracking-wider underline">Warehouse PO Dispatch Checklist</h5>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <p className="font-semibold text-xs text-orange-800 uppercase">Verification</p>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.checklist.invoiceChecklist.invoiceNoVerified}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                checklist: {
+                                  ...formData.checklist,
+                                  invoiceChecklist: { ...formData.checklist.invoiceChecklist, invoiceNoVerified: e.target.checked }
+                                }
+                              })}
+                              className="w-4 h-4 text-orange-600 rounded"
+                            />
+                            <span className="text-sm">Invoice Number Verified</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.checklist.productDetails.totalQtyVerified}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                checklist: {
+                                  ...formData.checklist,
+                                  productDetails: { ...formData.checklist.productDetails, totalQtyVerified: e.target.checked }
+                                }
+                              })}
+                              className="w-4 h-4 text-orange-600 rounded"
+                            />
+                            <span className="text-sm">Total Quantity Verified</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.checklist.driverDetails.driverNamePhoneVerified}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                checklist: {
+                                  ...formData.checklist,
+                                  driverDetails: { ...formData.checklist.driverDetails, driverNamePhoneVerified: e.target.checked }
+                                }
+                              })}
+                              className="w-4 h-4 text-orange-600 rounded"
+                            />
+                            <span className="text-sm">Driver Details Verified</span>
+                          </label>
+                        </div>
+
+                        <div className="space-y-3">
+                          <p className="font-semibold text-xs text-orange-800 uppercase">Documents Handed Over</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formData.checklist.docsToDriver.originalInvoice}
+                                onChange={(e) => setFormData({
+                                  ...formData,
+                                  checklist: {
+                                    ...formData.checklist,
+                                    docsToDriver: { ...formData.checklist.docsToDriver, originalInvoice: e.target.checked }
+                                  }
+                                })}
+                                className="w-4 h-4 text-orange-600 rounded"
+                              />
+                              <span className="text-sm">Original Invoice</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formData.checklist.docsToDriver.deliveryChallan}
+                                onChange={(e) => setFormData({
+                                  ...formData,
+                                  checklist: {
+                                    ...formData.checklist,
+                                    docsToDriver: { ...formData.checklist.docsToDriver, deliveryChallan: e.target.checked }
+                                  }
+                                })}
+                                className="w-4 h-4 text-orange-600 rounded"
+                              />
+                              <span className="text-sm">Delivery Challan</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formData.checklist.docsToDriver.eWayBillCopy}
+                                onChange={(e) => setFormData({
+                                  ...formData,
+                                  checklist: {
+                                    ...formData.checklist,
+                                    docsToDriver: { ...formData.checklist.docsToDriver, eWayBillCopy: e.target.checked }
+                                  }
+                                })}
+                                className="w-4 h-4 text-orange-600 rounded"
+                              />
+                              <span className="text-sm">E-Way Bill Copy</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formData.checklist.docsToDriver.gatePass}
+                                onChange={(e) => setFormData({
+                                  ...formData,
+                                  checklist: {
+                                    ...formData.checklist,
+                                    docsToDriver: { ...formData.checklist.docsToDriver, gatePass: e.target.checked }
+                                  }
+                                })}
+                                className="w-4 h-4 text-orange-600 rounded"
+                              />
+                              <span className="text-sm">Gate Pass</span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Driver Checklist Section */}
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                      <h5 className="font-bold text-blue-900 mb-3 text-sm uppercase tracking-wider underline">Driver Checklist (Section A - Loading)</h5>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {Object.keys(formData.checklist.driverChecklist).map((key) => (
+                          <label key={key} className="flex items-center gap-2 cursor-pointer bg-white p-2 rounded border border-blue-200 hover:bg-blue-100">
+                            <input
+                              type="checkbox"
+                              checked={formData.checklist.driverChecklist[key]}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                checklist: {
+                                  ...formData.checklist,
+                                  driverChecklist: { ...formData.checklist.driverChecklist, [key]: e.target.checked }
+                                }
+                              })}
+                              className="w-4 h-4 text-blue-600 rounded"
+                            />
+                            <span className="text-xs font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Department Certifications */}
+                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                      <h5 className="font-bold text-purple-900 mb-3 text-sm uppercase tracking-wider">Departmental Verifications</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Supervisor</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.supervisorName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, supervisorName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="Name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Acc. Dept</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.accountantName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, accountantName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="Name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">S.C. Exec</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.supplyChainExecName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="Name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Acc. Manager</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.accountsManagerName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="Name"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Notes */}
@@ -744,6 +1080,79 @@ export default function Outgoing() {
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                   <p className="text-gray-600 text-sm">Notes</p>
                   <p>{selectedShipment.notes}</p>
+                </div>
+              )}
+
+              {/* Checklist Detail Section */}
+              {selectedShipment.checklist && (
+                <div className="mt-6 border-t pt-6">
+                  <h4 className="font-bold text-lg mb-4 text-orange-800 flex items-center gap-2">
+                    <span className="bg-orange-100 p-2 rounded-lg">📋</span>
+                    Dispatch & Driver Checklist Details
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="font-bold text-xs uppercase text-gray-500 mb-2">PO Dispatch Verification</p>
+                      <div className="space-y-1">
+                        <p className="text-sm flex justify-between">
+                          <span>Invoice No Verified:</span>
+                          <span>{selectedShipment.checklist.invoiceChecklist.invoiceNoVerified ? "✅" : "❌"}</span>
+                        </p>
+                        <p className="text-sm flex justify-between">
+                          <span>Total Qty Verified:</span>
+                          <span>{selectedShipment.checklist.productDetails.totalQtyVerified ? "✅" : "❌"}</span>
+                        </p>
+                        <p className="text-sm flex justify-between">
+                          <span>Driver Details Verified:</span>
+                          <span>{selectedShipment.checklist.driverDetails.driverNamePhoneVerified ? "✅" : "❌"}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="font-bold text-xs uppercase text-gray-500 mb-2">Documents to Driver</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <p className="text-xs">{selectedShipment.checklist.docsToDriver.originalInvoice ? "✅" : "❌"} Invoice</p>
+                        <p className="text-xs">{selectedShipment.checklist.docsToDriver.deliveryChallan ? "✅" : "❌"} Challan</p>
+                        <p className="text-xs">{selectedShipment.checklist.docsToDriver.eWayBillCopy ? "✅" : "❌"} E-Way Bill</p>
+                        <p className="text-xs">{selectedShipment.checklist.docsToDriver.gatePass ? "✅" : "❌"} Gate Pass</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+                    <p className="font-bold text-xs uppercase text-blue-600 mb-2">Driver Checklist (Loading)</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {Object.entries(selectedShipment.checklist.driverChecklist).map(([key, val]) => (
+                        <span key={key} className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${val ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {key.replace(/([A-Z])/g, ' $1').toUpperCase()}: {val ? 'OK' : 'NO'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 bg-purple-50 p-4 rounded-lg">
+                    <p className="font-bold text-xs uppercase text-purple-600 mb-2">Departmental Verifications</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Supervisor</p>
+                        <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.supervisorName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Accounts</p>
+                        <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.accountantName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Supply Chain</p>
+                        <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.supplyChainExecName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Acc. Mgr</p>
+                        <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.accountsManagerName || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

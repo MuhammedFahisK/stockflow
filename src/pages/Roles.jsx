@@ -8,10 +8,7 @@ export default function Roles() {
   const roles = Object.keys(ROLE_PERMISSIONS);
   const roleColors = {
     SUPER_ADMIN: 'bg-red-100 text-red-700',
-    ADMIN: 'bg-blue-100 text-blue-700',
-    MANAGER: 'bg-green-100 text-green-700',
-    OPERATOR: 'bg-yellow-100 text-yellow-700',
-    VIEWER: 'bg-gray-100 text-gray-700',
+    DEPARTMENT_USER: 'bg-blue-100 text-blue-700',
   };
 
   const permissionCategories = {
@@ -25,11 +22,8 @@ export default function Roles() {
   };
 
   const roleDescriptions = {
-    SUPER_ADMIN: 'Full system access. Sees all activity and is the only role allowed to change role permissions.',
-    ADMIN: 'Operator role. Can manage products, stock records, users, and reports for this company.',
-    MANAGER: 'Management level. Can create and update stock records, manage incoming/outgoing items.',
-    OPERATOR: 'Supervisor role. Oversees operations and stock records but cannot change system roles.',
-    VIEWER: 'Read-only access. Can only view records and generate reports; cannot make changes.',
+    SUPER_ADMIN: 'Full system access. Sees all activity and is the only role allowed to manage roles, companies, and departments.',
+    DEPARTMENT_USER: 'Department-based user (Supervisor, Accountant, Driver, etc.). Permissions are the same for all departments; department is only for classification.',
   };
 
   const hasPermission = (role, permission) => {
@@ -40,8 +34,10 @@ export default function Roles() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold">Role Management</h2>
-        <p className="text-gray-600 text-sm mt-1">View and manage role permissions across the system</p>
+        <h2 className="text-3xl font-bold">Role & Department Model</h2>
+        <p className="text-gray-600 text-sm mt-1">
+          Only SUPER_ADMIN has a system role. All other users are department-based (Supervisor, Accountant, Driver, etc.) and share the same permissions.
+        </p>
       </div>
 
       {/* Info Alert */}
@@ -57,11 +53,10 @@ export default function Roles() {
           <button
             key={role}
             onClick={() => setSelectedRole(role)}
-            className={`p-3 rounded-lg font-medium text-sm transition ${
-              selectedRole === role
+            className={`p-3 rounded-lg font-medium text-sm transition ${selectedRole === role
                 ? `${roleColors[role]} ring-2 ring-offset-2 ring-current`
                 : `${roleColors[role]} opacity-60 hover:opacity-100`
-            }`}
+              }`}
           >
             {ROLE_LABELS[role] || role}
           </button>
@@ -92,11 +87,10 @@ export default function Roles() {
                   return (
                     <div
                       key={permission}
-                      className={`p-3 rounded-lg border-2 flex items-center gap-2 ${
-                        hasIt
+                      className={`p-3 rounded-lg border-2 flex items-center gap-2 ${hasIt
                           ? 'border-green-200 bg-green-50'
                           : 'border-red-200 bg-red-50'
-                      }`}
+                        }`}
                     >
                       {hasIt ? (
                         <Check className="text-green-600 flex-shrink-0" size={20} />
@@ -104,9 +98,8 @@ export default function Roles() {
                         <X className="text-red-600 flex-shrink-0" size={20} />
                       )}
                       <span
-                        className={`text-sm ${
-                          hasIt ? 'text-green-700 font-medium' : 'text-red-700 line-through'
-                        }`}
+                        className={`text-sm ${hasIt ? 'text-green-700 font-medium' : 'text-red-700 line-through'
+                          }`}
                       >
                         {permission.replace(':', ' - ').replace('_', ' ').toUpperCase()}
                       </span>
@@ -139,29 +132,13 @@ export default function Roles() {
             </div>
             <span className="text-gray-600 text-sm">Highest level - Full access, can see all activity and change role permissions</span>
           </div>
-          <div className="flex items-center gap-3 pb-3 border-b">
-            <div className={`${roleColors['ADMIN']} px-3 py-1 rounded-full text-xs font-medium`}>
-              {ROLE_LABELS.ADMIN}
-            </div>
-            <span className="text-gray-600 text-sm">Operator role - Handles day-to-day stock and user management within the company</span>
-          </div>
-          <div className="flex items-center gap-3 pb-3 border-b">
-            <div className={`${roleColors['MANAGER']} px-3 py-1 rounded-full text-xs font-medium`}>
-              {ROLE_LABELS.MANAGER}
-            </div>
-            <span className="text-gray-600 text-sm">Departmental management - Can create but not delete</span>
-          </div>
-          <div className="flex items-center gap-3 pb-3 border-b">
-            <div className={`${roleColors['OPERATOR']} px-3 py-1 rounded-full text-xs font-medium`}>
-              {ROLE_LABELS.OPERATOR}
-            </div>
-            <span className="text-gray-600 text-sm">Supervisor role - Oversees operators and stock movement but cannot change roles</span>
-          </div>
           <div className="flex items-center gap-3">
-            <div className={`${roleColors['VIEWER']} px-3 py-1 rounded-full text-xs font-medium`}>
-              {ROLE_LABELS.VIEWER}
+            <div className={`${roleColors['DEPARTMENT_USER']} px-3 py-1 rounded-full text-xs font-medium`}>
+              {ROLE_LABELS.DEPARTMENT_USER}
             </div>
-            <span className="text-gray-600 text-sm">Lowest level - View only, no modifications allowed</span>
+            <span className="text-gray-600 text-sm">
+              Department users (Supervisor, Accountant, Driver, etc.) – same permissions, department is for classification and reporting only.
+            </span>
           </div>
         </div>
       </div>

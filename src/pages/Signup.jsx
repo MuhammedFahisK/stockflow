@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { setDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, setDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Mail, Lock, Building2, User, ArrowRight } from 'lucide-react';
+import { UserPlus, Mail, Lock, Building2, User, ArrowRight, ChevronDown } from 'lucide-react';
 import LogoMark from '../components/LogoMark';
 
 export default function Signup() {
@@ -16,12 +16,29 @@ export default function Signup() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [existingCompanies, setExistingCompanies] = useState([]);
+  const [showCompanyInput, setShowCompanyInput] = useState(false);
   const navigate = useNavigate();
 
+  React.useEffect(() => {
+    const fetchCompanies = async () => {
+      const snap = await getDocs(collection(db, 'companies'));
+      const list = snap.docs.map(d => d.id).sort();
+      setExistingCompanies(list);
+    };
+    fetchCompanies();
+  }, []);
+
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'companyName' && value === '__NEW__') {
+      setShowCompanyInput(true);
+      setFormData({ ...formData, companyName: '' });
+      return;
+    }
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
   };
 
@@ -114,22 +131,64 @@ export default function Signup() {
               </div>
             </div>
 
-            {/* Company Name Field */}
+            {/* Company Selection Field */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Company Name
+                Select Company
               </label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  name="companyName"
-                  value={formData.companyName}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Your Company"
-                  required
-                />
+              <div className="space-y-3">
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                  {!showCompanyInput ? (
+                    <select
+                      name="companyName"
+                      value={formData.companyName}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white transition-all"
+                      required
+                    >
+                      <option value="">Choose a company...</option>
+                      {existingCompanies.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="__NEW__">+ Add New Company</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      name="companyName"
+                      value={formData.companyName}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="New Company Name"
+                      required
+                      autoFocus
+                    />
+                  )}
+                  {!showCompanyInput && (
+                    <ChevronDown className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
+                  )}
+                </div>
+
+                {showCompanyInput ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCompanyInput(false);
+                      setFormData({ ...formData, companyName: '' });
+                    }}
+                    className="text-xs text-blue-600 font-medium hover:underline"
+                  >
+                    Back to selection
+                  </button>
+                ) : (
+                  formData.companyName === '__NEW__' && (
+                    <div className="animate-in fade-in slide-in-from-top-1">
+                      {setShowCompanyInput(true)}
+                      {setFormData({ ...formData, companyName: '' })}
+                    </div>
+                  )
+                )}
               </div>
             </div>
 

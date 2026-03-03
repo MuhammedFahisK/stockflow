@@ -18,7 +18,7 @@ import { PERMISSIONS, hasPermission } from '../utils/permissions';
 import SignaturePad from '../components/SignaturePad';
 
 export default function Returns() {
-  const { userCompany, userRole } = useAuth();
+  const { user, userCompany, userRole } = useAuth();
   const [returns, setReturns] = useState([]);
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -47,6 +47,28 @@ export default function Returns() {
     supervisorSignature: '',
     accountsSignature: '',
     notes: '',
+    checklist: {
+      invoiceDebitNote: {
+        partyNameVerified: false,
+        invoiceNoVerified: false,
+        ewayBillVerified: false,
+      },
+      replenishmentTimeline: '',
+      communicationStatus: {
+        accountsDept: false,
+        sales: false,
+        oh: false,
+      },
+      docsToAccounts: {
+        debitNoteSigned: false,
+        grnSigned: false,
+      },
+      certifications: {
+        supervisorName: '',
+        supplyChainExecName: '',
+        accountsManagerName: '',
+      }
+    }
   });
 
   const canCreate = hasPermission(userRole, PERMISSIONS.RETURNS_CREATE);
@@ -197,10 +219,14 @@ export default function Returns() {
         return;
       }
 
+      const createdBy =
+        user?.displayName || user?.email || user?.uid || '';
+
       await addDoc(collection(db, 'returns'), {
         ...formData,
         items: validItems,
         company: userCompany,
+        createdBy,
         createdAt: Timestamp.now(),
         status: 'pending',
       });
@@ -228,6 +254,28 @@ export default function Returns() {
         supervisorSignature: '',
         accountsSignature: '',
         notes: '',
+        checklist: {
+          invoiceDebitNote: {
+            partyNameVerified: false,
+            invoiceNoVerified: false,
+            ewayBillVerified: false,
+          },
+          replenishmentTimeline: '',
+          communicationStatus: {
+            accountsDept: false,
+            sales: false,
+            oh: false,
+          },
+          docsToAccounts: {
+            debitNoteSigned: false,
+            grnSigned: false,
+          },
+          certifications: {
+            supervisorName: '',
+            supplyChainExecName: '',
+            accountsManagerName: '',
+          }
+        }
       });
     } catch (error) {
       console.error('Error saving return:', error);
@@ -340,11 +388,10 @@ export default function Returns() {
                       {ret.items?.reduce((sum, item) => sum + parseInt(item.qtyReturned || 0), 0) || 0} units
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        ret.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${ret.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                         ret.status === 'disposed' ? 'bg-red-100 text-red-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
+                          'bg-green-100 text-green-700'
+                        }`}>
                         {ret.status}
                       </span>
                     </td>
@@ -573,7 +620,6 @@ export default function Returns() {
                             required
                           />
                         </div>
-
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Return Reason *
@@ -592,6 +638,20 @@ export default function Returns() {
                             ))}
                           </select>
                         </div>
+                      </div>
+
+                      <div className="mt-2">
+                        <label className="inline-flex items-center text-xs font-medium text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={item.verified || false}
+                            onChange={(e) =>
+                              handleItemChange(index, 'verified', e.target.checked)
+                            }
+                            className="w-4 h-4 border border-gray-300 rounded mr-2"
+                          />
+                          Returned quantity counted & matched with documents
+                        </label>
                       </div>
 
                       <div>
@@ -620,6 +680,231 @@ export default function Returns() {
                   >
                     + Add Another Item
                   </button>
+                </div>
+
+                {/* Checklist Section */}
+                <div className="border-t pt-6">
+                  <h4 className="font-bold mb-4 text-xl text-red-800 flex items-center gap-2">
+                    <span className="bg-red-100 p-2 rounded-lg">📋</span>
+                    Warehouse Stock Return Checklist
+                  </h4>
+
+                  <div className="space-y-6">
+                    {/* Invoice/Debit Note Checklist */}
+                    <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                      <h5 className="font-bold text-red-900 mb-3 text-sm uppercase tracking-wider">Invoice / Debit Note Verification</h5>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.invoiceDebitNote.partyNameVerified}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                invoiceDebitNote: { ...formData.checklist.invoiceDebitNote, partyNameVerified: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-red-600 rounded"
+                          />
+                          <span className="text-sm font-medium">Party Name Verified</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.invoiceDebitNote.invoiceNoVerified}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                invoiceDebitNote: { ...formData.checklist.invoiceDebitNote, invoiceNoVerified: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-red-600 rounded"
+                          />
+                          <span className="text-sm font-medium">Invoice Number Verified</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-red-200 hover:bg-red-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.invoiceDebitNote.ewayBillVerified}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                invoiceDebitNote: { ...formData.checklist.invoiceDebitNote, ewayBillVerified: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-red-600 rounded"
+                          />
+                          <span className="text-sm font-medium">E-WAY Bill Verified</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Replenishment Timeline */}
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <h5 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wider">Replenishment Timeline</h5>
+                        <input
+                          type="date"
+                          value={formData.checklist.replenishmentTimeline}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            checklist: {
+                              ...formData.checklist,
+                              replenishmentTimeline: e.target.value
+                            }
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                      </div>
+
+                      {/* Communication Status */}
+                      <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                        <h5 className="font-bold text-yellow-900 mb-3 text-sm uppercase tracking-wider">Communication Status</h5>
+                        <div className="flex flex-wrap gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.checklist.communicationStatus.accountsDept}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                checklist: {
+                                  ...formData.checklist,
+                                  communicationStatus: { ...formData.checklist.communicationStatus, accountsDept: e.target.checked }
+                                }
+                              })}
+                              className="w-4 h-4 text-yellow-600 rounded"
+                            />
+                            <span className="text-sm">Accounts Dept</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.checklist.communicationStatus.sales}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                checklist: {
+                                  ...formData.checklist,
+                                  communicationStatus: { ...formData.checklist.communicationStatus, sales: e.target.checked }
+                                }
+                              })}
+                              className="w-4 h-4 text-yellow-600 rounded"
+                            />
+                            <span className="text-sm">Sales</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.checklist.communicationStatus.oh}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                checklist: {
+                                  ...formData.checklist,
+                                  communicationStatus: { ...formData.checklist.communicationStatus, oh: e.target.checked }
+                                }
+                              })}
+                              className="w-4 h-4 text-yellow-600 rounded"
+                            />
+                            <span className="text-sm">OH</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Docs to Accounts */}
+                    <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                      <h5 className="font-bold text-green-900 mb-3 text-sm uppercase tracking-wider">Documents Submitted to Accounts Dept</h5>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-green-200 hover:bg-green-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.docsToAccounts.debitNoteSigned}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                docsToAccounts: { ...formData.checklist.docsToAccounts, debitNoteSigned: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-green-600 rounded"
+                          />
+                          <span className="text-sm font-medium">Debit Note (Signed)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-green-200 hover:bg-green-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.docsToAccounts.grnSigned}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                docsToAccounts: { ...formData.checklist.docsToAccounts, grnSigned: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-green-600 rounded"
+                          />
+                          <span className="text-sm font-medium">GRN (Signed)</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Department Certifications */}
+                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                      <h5 className="font-bold text-purple-900 mb-3 text-sm uppercase tracking-wider">Departmental Verifications</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Supervisor Name</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.supervisorName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, supervisorName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="Warehouse Supervisor"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Supply Chain Exec</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.supplyChainExecName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="S.C. Executive"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Accounts Manager</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.accountsManagerName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="Accounts Manager"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Notes */}
@@ -750,6 +1035,64 @@ export default function Returns() {
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                   <p className="text-gray-600 text-sm">Notes</p>
                   <p>{selectedReturn.notes}</p>
+                </div>
+              )}
+
+              {/* Checklist Detail Section */}
+              {selectedReturn.checklist && (
+                <div className="mt-6 border-t pt-6 text-sm">
+                  <h4 className="font-bold text-lg mb-4 text-red-800 flex items-center gap-2">
+                    <span className="bg-red-100 p-2 rounded-lg">📋</span>
+                    Return Checklist Details
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="font-bold text-xs uppercase text-gray-500 mb-2">Invoice/Debit Note Verification</p>
+                      <div className="space-y-1">
+                        <p className="flex justify-between">
+                          <span>Party Name Verified:</span>
+                          <span>{selectedReturn.checklist.invoiceDebitNote.partyNameVerified ? "✅" : "❌"}</span>
+                        </p>
+                        <p className="flex justify-between">
+                          <span>Invoice No Verified:</span>
+                          <span>{selectedReturn.checklist.invoiceDebitNote.invoiceNoVerified ? "✅" : "❌"}</span>
+                        </p>
+                        <p className="flex justify-between">
+                          <span>E-Way Bill Verified:</span>
+                          <span>{selectedReturn.checklist.invoiceDebitNote.ewayBillVerified ? "✅" : "❌"}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <p className="font-bold text-xs uppercase text-yellow-600 mb-2">Communication & Timeline</p>
+                      <p className="mb-2">Replenishment Date: <span className="font-semibold">{selectedReturn.checklist.replenishmentTimeline || 'N/A'}</span></p>
+                      <div className="flex gap-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${selectedReturn.checklist.communicationStatus.accountsDept ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>Accounts Dept</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${selectedReturn.checklist.communicationStatus.sales ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>Sales</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${selectedReturn.checklist.communicationStatus.oh ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>OH</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 bg-purple-50 p-4 rounded-lg">
+                    <p className="font-bold text-xs uppercase text-purple-600 mb-2">Departmental Verifications</p>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Supervisor</p>
+                        <p className="font-semibold">{selectedReturn.checklist.certifications.supervisorName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Supply Chain</p>
+                        <p className="font-semibold">{selectedReturn.checklist.certifications.supplyChainExecName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Accounts Mgr</p>
+                        <p className="font-semibold">{selectedReturn.checklist.certifications.accountsManagerName || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

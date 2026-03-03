@@ -18,7 +18,7 @@ import { PERMISSIONS, hasPermission } from '../utils/permissions';
 import SignaturePad from '../components/SignaturePad';
 
 export default function Incoming() {
-  const { userCompany, userRole } = useAuth();
+  const { user, userCompany, userRole } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -44,11 +44,41 @@ export default function Incoming() {
         discrepancy: false,
         discrepancyReason: '',
         warehouseLocation: '',
+        verified: false,
       },
     ],
     supervisorSignature: '',
     accountsSignature: '',
     notes: '',
+    checklist: {
+      invoiceChecklist: {
+        invoiceNoVerified: false,
+        ewayBillVerified: false,
+      },
+      acceptanceDecision: {
+        grnNo: '',
+        qtyAccepted: '',
+        cartonUnits: '',
+        partialQty: '',
+        rejectedQty: '',
+      },
+      docsToAccounts: {
+        originalInvoice: false,
+        grnSigned: false,
+      },
+      finalConfirmation: {
+        qtyRecountMatches: false,
+        rtvConfirmed: false,
+        rtvInvoice: false,
+        ewayBill: false,
+        docsHandedOver: false,
+      },
+      certifications: {
+        supervisorName: '',
+        supplyChainExecName: '',
+        accountsManagerName: '',
+      }
+    }
   });
 
   const canCreate = hasPermission(userRole, PERMISSIONS.INCOMING_CREATE);
@@ -160,6 +190,7 @@ export default function Incoming() {
           discrepancy: false,
           discrepancyReason: '',
           warehouseLocation: '',
+          verified: false,
         },
       ],
     });
@@ -188,10 +219,14 @@ export default function Incoming() {
         return;
       }
 
+      const createdBy =
+        user?.displayName || user?.email || user?.uid || '';
+
       await addDoc(collection(db, 'incomingStock'), {
         ...formData,
         items: validItems,
         company: userCompany,
+        createdBy,
         createdAt: Timestamp.now(),
         status: 'completed',
       });
@@ -216,11 +251,41 @@ export default function Incoming() {
             discrepancy: false,
             discrepancyReason: '',
             warehouseLocation: '',
+            verified: false,
           },
         ],
         supervisorSignature: '',
         accountsSignature: '',
         notes: '',
+        checklist: {
+          invoiceChecklist: {
+            invoiceNoVerified: false,
+            ewayBillVerified: false,
+          },
+          acceptanceDecision: {
+            grnNo: '',
+            qtyAccepted: '',
+            cartonUnits: '',
+            partialQty: '',
+            rejectedQty: '',
+          },
+          docsToAccounts: {
+            originalInvoice: false,
+            grnSigned: false,
+          },
+          finalConfirmation: {
+            qtyRecountMatches: false,
+            rtvConfirmed: false,
+            rtvInvoice: false,
+            ewayBill: false,
+            docsHandedOver: false,
+          },
+          certifications: {
+            supervisorName: '',
+            supplyChainExecName: '',
+            accountsManagerName: '',
+          }
+        }
       });
     } catch (error) {
       console.error('Error saving invoice:', error);
@@ -620,6 +685,20 @@ export default function Incoming() {
                           />
                         </div>
                       )}
+
+                      <div className="mt-3">
+                        <label className="inline-flex items-center text-xs font-medium text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={item.verified}
+                            onChange={(e) =>
+                              handleItemChange(index, 'verified', e.target.checked)
+                            }
+                            className="w-4 h-4 border border-gray-300 rounded mr-2"
+                          />
+                          Qty, batch, expiry & warehouse location verified
+                        </label>
+                      </div>
                     </div>
                   ))}
 
@@ -630,6 +709,310 @@ export default function Incoming() {
                   >
                     + Add Another Item
                   </button>
+                </div>
+
+                {/* Checklist Section */}
+                <div className="border-t pt-6">
+                  <h4 className="font-bold mb-4 text-xl text-blue-800 flex items-center gap-2">
+                    <span className="bg-blue-100 p-2 rounded-lg">📋</span>
+                    Warehouse Stock-In Checklist
+                  </h4>
+
+                  <div className="space-y-6">
+                    {/* Invoice Checklist */}
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                      <h5 className="font-bold text-blue-900 mb-3 text-sm uppercase tracking-wider">Invoice / E-Way Bill Verification</h5>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-blue-200 hover:bg-blue-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.invoiceChecklist.invoiceNoVerified}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                invoiceChecklist: { ...formData.checklist.invoiceChecklist, invoiceNoVerified: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-blue-600 rounded"
+                          />
+                          <span className="text-sm font-medium">Invoice Number Verified</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-blue-200 hover:bg-blue-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.invoiceChecklist.ewayBillVerified}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                invoiceChecklist: { ...formData.checklist.invoiceChecklist, ewayBillVerified: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-blue-600 rounded"
+                          />
+                          <span className="text-sm font-medium">E-WAY Bill & Expiry Verified</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Acceptance Decision */}
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                      <h5 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wider">Acceptance Decision</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-600 mb-1">GRN NO</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.acceptanceDecision.grnNo}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, grnNo: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            placeholder="GRN-001"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-600 mb-1">QTY ACCEPTED</label>
+                          <input
+                            type="number"
+                            value={formData.checklist.acceptanceDecision.qtyAccepted}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, qtyAccepted: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-600 mb-1">CARTON/UNITS</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.acceptanceDecision.cartonUnits}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, cartonUnits: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-600 mb-1">PARTIAL QTY</label>
+                          <input
+                            type="number"
+                            value={formData.checklist.acceptanceDecision.partialQty}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, partialQty: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-600 mb-1">REJECTED QTY</label>
+                          <input
+                            type="number"
+                            value={formData.checklist.acceptanceDecision.rejectedQty}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, rejectedQty: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Docs to Accounts */}
+                    <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                      <h5 className="font-bold text-green-900 mb-3 text-sm uppercase tracking-wider">Documents Submitted to Accounts Dept</h5>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-green-200 hover:bg-green-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.docsToAccounts.originalInvoice}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                docsToAccounts: { ...formData.checklist.docsToAccounts, originalInvoice: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-green-600 rounded"
+                          />
+                          <span className="text-sm font-medium">Original Invoice (Signed)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-green-200 hover:bg-green-100 transition">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.docsToAccounts.grnSigned}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                docsToAccounts: { ...formData.checklist.docsToAccounts, grnSigned: e.target.checked }
+                              }
+                            })}
+                            className="w-5 h-5 text-green-600 rounded"
+                          />
+                          <span className="text-sm font-medium">GRN (Signed)</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Final Confirmation */}
+                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                      <h5 className="font-bold text-orange-900 mb-3 text-sm uppercase tracking-wider">Final Confirmation (Before Releasing)</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.finalConfirmation.qtyRecountMatches}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                finalConfirmation: { ...formData.checklist.finalConfirmation, qtyRecountMatches: e.target.checked }
+                              }
+                            })}
+                            className="w-4 h-4 text-orange-600 rounded"
+                          />
+                          <span className="text-sm">Final quantity recount matches invoice</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.finalConfirmation.ewayBill}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                finalConfirmation: { ...formData.checklist.finalConfirmation, ewayBill: e.target.checked }
+                              }
+                            })}
+                            className="w-4 h-4 text-orange-600 rounded"
+                          />
+                          <span className="text-sm">E-way bill verified</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.finalConfirmation.rtvConfirmed}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                finalConfirmation: { ...formData.checklist.finalConfirmation, rtvConfirmed: e.target.checked }
+                              }
+                            })}
+                            className="w-4 h-4 text-orange-600 rounded"
+                          />
+                          <span className="text-sm">Check and confirm any RTV</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.finalConfirmation.docsHandedOver}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                finalConfirmation: { ...formData.checklist.finalConfirmation, docsHandedOver: e.target.checked }
+                              }
+                            })}
+                            className="w-4 h-4 text-orange-600 rounded"
+                          />
+                          <span className="text-sm">All docs attached & handed to driver</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.checklist.finalConfirmation.rtvInvoice}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                finalConfirmation: { ...formData.checklist.finalConfirmation, rtvInvoice: e.target.checked }
+                              }
+                            })}
+                            className="w-4 h-4 text-orange-600 rounded"
+                          />
+                          <span className="text-sm">RTV Invoice collected</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Department Certifications */}
+                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                      <h5 className="font-bold text-purple-900 mb-3 text-sm uppercase tracking-wider">Departmental Verifications</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Supervisor Name</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.supervisorName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, supervisorName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="Warehouse Supervisor"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Supply Chain Exec</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.supplyChainExecName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="S.C. Executive"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-purple-600 mb-1">Accounts Manager</label>
+                          <input
+                            type="text"
+                            value={formData.checklist.certifications.accountsManagerName}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              checklist: {
+                                ...formData.checklist,
+                                certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
+                            placeholder="Accounts Manager"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Notes */}
@@ -760,6 +1143,69 @@ export default function Incoming() {
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                   <p className="text-gray-600 text-sm">Notes</p>
                   <p>{selectedInvoice.notes}</p>
+                </div>
+              )}
+
+              {/* Checklist Detail Section */}
+              {selectedInvoice.checklist && (
+                <div className="mt-6 border-t pt-6">
+                  <h4 className="font-bold text-lg mb-4 text-blue-800 flex items-center gap-2">
+                    <span className="bg-blue-100 p-2 rounded-lg">📋</span>
+                    Checklist Verification Details
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="font-bold text-xs uppercase text-gray-500 mb-2">Invoice Verification</p>
+                      <div className="space-y-1">
+                        <p className="text-sm flex justify-between">
+                          <span>Invoice No Verified:</span>
+                          <span className={selectedInvoice.checklist.invoiceChecklist.invoiceNoVerified ? "text-green-600 font-bold" : "text-red-500"}>
+                            {selectedInvoice.checklist.invoiceChecklist.invoiceNoVerified ? "YES" : "NO"}
+                          </span>
+                        </p>
+                        <p className="text-sm flex justify-between">
+                          <span>E-Way Bill Verified:</span>
+                          <span className={selectedInvoice.checklist.invoiceChecklist.ewayBillVerified ? "text-green-600 font-bold" : "text-red-500"}>
+                            {selectedInvoice.checklist.invoiceChecklist.ewayBillVerified ? "YES" : "NO"}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="font-bold text-xs uppercase text-gray-500 mb-2">Final Confirmation</p>
+                      <div className="space-y-1">
+                        <p className="text-sm flex justify-between">
+                          <span>Qty Recount Matches:</span>
+                          <span className={selectedInvoice.checklist.finalConfirmation.qtyRecountMatches ? "text-green-600 font-bold" : "text-red-500"}>
+                            {selectedInvoice.checklist.finalConfirmation.qtyRecountMatches ? "YES" : "NO"}
+                          </span>
+                        </p>
+                        <p className="text-sm flex justify-between">
+                          <span>Docs Handed to Driver:</span>
+                          <span>{selectedInvoice.checklist.finalConfirmation.docsHandedOver ? "✅" : "❌"}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 bg-purple-50 p-4 rounded-lg">
+                    <p className="font-bold text-xs uppercase text-purple-600 mb-2">Departmental Verifications</p>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Supervisor</p>
+                        <p className="text-sm font-semibold">{selectedInvoice.checklist.certifications.supervisorName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Supply Chain</p>
+                        <p className="text-sm font-semibold">{selectedInvoice.checklist.certifications.supplyChainExecName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Accounts Mgr</p>
+                        <p className="text-sm font-semibold">{selectedInvoice.checklist.certifications.accountsManagerName || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

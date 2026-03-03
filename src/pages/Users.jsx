@@ -13,7 +13,12 @@ import {
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import { Plus, X, Edit2, Trash2, Mail, User } from 'lucide-react';
-import { PERMISSIONS, hasPermission, ROLE_PERMISSIONS, ROLE_LABELS } from '../utils/permissions';
+import {
+  PERMISSIONS,
+  hasPermission,
+  ROLE_LABELS,
+  DEFAULT_DEPARTMENTS,
+} from '../utils/permissions';
 import { logActivity } from '../utils/activityLogger';
 
 export default function Users() {
@@ -27,7 +32,8 @@ export default function Users() {
     fullName: '',
     email: '',
     password: '',
-    role: 'OPERATOR',
+    role: 'DEPARTMENT_USER',
+    department: DEFAULT_DEPARTMENTS[0],
   });
 
   const canManage = hasPermission(userRole, PERMISSIONS.USERS_CREATE);
@@ -63,11 +69,16 @@ export default function Users() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const isSuperAdminRole = formData.role === 'SUPER_ADMIN';
+      const departmentToSave = isSuperAdminRole ? 'SUPER_ADMIN' : formData.department || null;
+
       if (editingUser) {
         // Update user
         await updateDoc(doc(db, 'users', editingUser.id), {
           fullName: formData.fullName,
-          role: formData.role,
+          // keep existing role so SUPER_ADMIN flag cannot be changed here
+          role: editingUser.role || 'DEPARTMENT_USER',
+          department: departmentToSave,
         });
         logActivity({
           userId: auth?.currentUser?.uid || null,
@@ -87,8 +98,9 @@ export default function Users() {
           uid: user.uid,
           email: formData.email,
           fullName: formData.fullName,
-          role: formData.role,
-          company: userCompany,
+          role: 'DEPARTMENT_USER',
+          department: departmentToSave,
+          company: formData.company || userCompany,
           status: 'active',
           createdAt: new Date(),
         });
@@ -107,7 +119,8 @@ export default function Users() {
         fullName: '',
         email: '',
         password: '',
-        role: 'OPERATOR',
+        role: 'DEPARTMENT_USER',
+        department: DEFAULT_DEPARTMENTS[0],
       });
     } catch (error) {
       console.error('Error saving user:', error);
@@ -121,7 +134,8 @@ export default function Users() {
       fullName: user.fullName,
       email: user.email,
       password: '',
-      role: user.role,
+      role: user.role || 'DEPARTMENT_USER',
+      department: user.department || DEFAULT_DEPARTMENTS[0],
     });
     setShowModal(true);
   };
@@ -129,20 +143,18 @@ export default function Users() {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        await deleteDoc(doc(db, 'users', id));        logActivity({
+        await deleteDoc(doc(db, 'users', id)); logActivity({
           userId: auth?.currentUser?.uid || null,
           company: userCompany,
           action: 'user:delete',
           details: `id=${id}`,
-        });        fetchUsers();
+        }); fetchUsers();
       } catch (error) {
         console.error('Error deleting user:', error);
         alert('Error deleting user');
       }
     }
   };
-
-  const roles = Object.keys(ROLE_PERMISSIONS);
 
   return (
     <div className="space-y-6">
@@ -160,7 +172,8 @@ export default function Users() {
                 fullName: '',
                 email: '',
                 password: '',
-                role: 'OPERATOR',
+                role: 'DEPARTMENT_USER',
+                department: DEFAULT_DEPARTMENTS[0],
               });
               setShowModal(true);
             }}
@@ -185,7 +198,9 @@ export default function Users() {
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Name</th>
                   <th className="px-4 py-3 text-left font-semibold">Email</th>
+                  <th className="px-4 py-3 text-left font-semibold">Company</th>
                   <th className="px-4 py-3 text-left font-semibold">Role</th>
+                  <th className="px-4 py-3 text-left font-semibold">Department</th>
                   <th className="px-4 py-3 text-left font-semibold">Status</th>
                   <th className="px-4 py-3 text-center font-semibold">Actions</th>
                 </tr>
@@ -208,16 +223,27 @@ export default function Users() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
-                        {ROLE_LABELS[user.role] || user.role}
+                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
+                        {user.company || '—'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        user.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
+                      <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
+                        {user.role === 'SUPER_ADMIN'
+                          ? ROLE_LABELS.SUPER_ADMIN
+                          : ROLE_LABELS.DEPARTMENT_USER}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        {user.department || '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.status === 'active'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
+                        }`}>
                         {user.status || 'active'}
                       </span>
                     </td>
@@ -307,33 +333,30 @@ export default function Users() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role *
+                    Department {formData.role === 'SUPER_ADMIN' ? '(auto-set for super admin)' : '*'}
                   </label>
-                  <select
-                    name="role"
-                    value={formData.role}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    required
-                  >
-                    {roles.map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABELS[r] || r}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
-                  <p className="font-medium mb-2">Role Permissions:</p>
-                  <ul className="text-xs space-y-1">
-                    {ROLE_PERMISSIONS[formData.role]?.slice(0, 5).map((perm) => (
-                      <li key={perm}>✓ {perm}</li>
-                    ))}
-                    {ROLE_PERMISSIONS[formData.role]?.length > 5 && (
-                      <li>... and {ROLE_PERMISSIONS[formData.role].length - 5} more</li>
-                    )}
-                  </ul>
+                  {formData.role === 'SUPER_ADMIN' ? (
+                    <input
+                      type="text"
+                      value="SUPER_ADMIN"
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                    />
+                  ) : (
+                    <select
+                      name="department"
+                      value={formData.department}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      required
+                    >
+                      {DEFAULT_DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="flex gap-2 pt-4 border-t">
