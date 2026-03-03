@@ -35,7 +35,7 @@ export default function BarcodeScannerDialog({ open, onClose, onDetected }) {
           onDetected?.(decodedText);
         }
       },
-      (_err) => {
+      () => {
         // noisy by nature; keep UI clean
       }
     );

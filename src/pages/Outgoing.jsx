@@ -674,7 +674,7 @@ export default function Outgoing() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl my-8">
             <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Shipment Details - {selectedShipment.invoiceNo}</h3>
+              <h3 className="text-xl font-bold">Delivery Note Details (confirms goods delivered) - {selectedShipment.invoiceNo}</h3>
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="text-gray-500 hover:text-gray-700"

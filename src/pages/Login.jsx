@@ -21,7 +21,7 @@ export default function Login() {
     try {
       const res = await signInWithEmailAndPassword(auth, email, password);
       // record login activity
-      logActivity({ userId: res.user.uid, company: process.env.VITE_FIREBASE_PROJECT_ID, action: 'login' });
+      logActivity({ userId: res.user.uid, action: 'login' });
       navigate('/');
     } catch (err) {
       setError(err.message);

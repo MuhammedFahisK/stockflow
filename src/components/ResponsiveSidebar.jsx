@@ -26,7 +26,7 @@ export default function Sidebar() {
   const [newCompanyName, setNewCompanyName] = useState('');
   const [creatingCompany, setCreatingCompany] = useState(false);
 
-  const { userRole, userCompany, companies, setActiveCompany, createCompany, logout } = useAuth();
+  const { user, userRole, userCompany, companies, setActiveCompany, createCompany, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {

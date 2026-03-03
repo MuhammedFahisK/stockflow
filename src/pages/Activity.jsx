@@ -5,7 +5,7 @@ import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { PERMISSIONS, hasPermission } from '../utils/permissions';
 
 export default function Activity() {
-  const { userRole, userCompany } = useAuth();
+  const { userRole } = useAuth();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

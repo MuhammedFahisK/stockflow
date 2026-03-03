@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { ROLE_PERMISSIONS, PERMISSIONS, ROLE_LABELS } from '../utils/permissions';
 import { Shield, Check, X } from 'lucide-react';
 
 export default function Roles() {
-  const { userRole } = useAuth();
   const [selectedRole, setSelectedRole] = useState('SUPER_ADMIN');
 
   const roles = Object.keys(ROLE_PERMISSIONS);

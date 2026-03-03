@@ -187,6 +187,7 @@ export default function Products() {
       return;
     }
     exportToExcel(
+      // eslint-disable-next-line no-unused-vars
       filteredProducts.map(({ id, createdAt, updatedAt, ...rest }) => rest),
       'products.xlsx',
       'Products'
