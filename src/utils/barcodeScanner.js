@@ -5,12 +5,19 @@ let html5QrcodeScanner = null;
 export const startBarcodeScan = (elementId, onScanSuccess, onScanError) => {
   try {
     html5QrcodeScanner = new Html5Qrcode(elementId);
-    
+
+    const qrbox = (viewfinderWidth, viewfinderHeight) => {
+      const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+      const size = Math.max(220, Math.floor(minEdge * 0.75));
+      return { width: size, height: size };
+    };
+
     const config = {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
+      fps: 12,
+      qrbox,
       rememberLastUsedCamera: true,
       aspectRatio: 1.77778,
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true },
     };
 
     html5QrcodeScanner.start(

@@ -74,10 +74,17 @@ export default function BarcodeScannerDialog({ open, onClose, onDetected }) {
               {error}
             </div>
           ) : (
-            <div className="rounded-lg overflow-hidden border border-gray-200">
+            <div className="rounded-lg border border-gray-200 bg-black relative overflow-hidden">
               <div id={scannerId} className="w-full" />
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="w-40 h-40 border-2 border-cyan-400 rounded-xl shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+              </div>
             </div>
           )}
+
+          <p className="mt-2 text-xs text-gray-500 text-center">
+            Move the camera until the barcode fits inside the box. Small barcodes may need to be closer.
+          </p>
 
           <button
             type="button"
