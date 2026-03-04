@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
 
         // Ensure the caller has a Firestore user doc with company/role so rules pass
         const userRef = doc(db, 'users', currentUser.uid);
-        const fallbackCompany = localStorage.getItem(SELECTED_COMPANY_KEY) || 'default';
+        const fallbackCompany = localStorage.getItem(SELECTED_COMPANY_KEY) || null;
         try {
           const snap = await getDoc(userRef);
           if (!snap.exists()) {
@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
               uid: currentUser.uid,
               email: currentUser.email || null,
               company: fallbackCompany,
-              role: 'SUPER_ADMIN',
+              role: 'DEPARTMENT_USER',
               status: 'active',
               fullName: currentUser.email?.split('@')[0] || 'User',
               createdAt: serverTimestamp(),
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
             const data = snap.data() || {};
             const patch = {};
             if (!data.company) patch.company = fallbackCompany;
-            if (!data.role) patch.role = 'SUPER_ADMIN';
+            if (!data.role) patch.role = 'DEPARTMENT_USER';
             if (!data.status) patch.status = 'active';
             patch.lastLoginAt = serverTimestamp();
             if (Object.keys(patch).length) {
