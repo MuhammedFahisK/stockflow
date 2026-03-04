@@ -39,10 +39,15 @@ export const PERMISSIONS = {
 
   // Activity / audit
   ACTIVITY_READ: 'activity:read',
+
+  // Departments
+  DEPARTMENTS_MANAGE: 'departments:manage',
 };
 
 // Default departments used to classify non-super admin users
-export const DEFAULT_DEPARTMENTS = ['Supervisor', 'Accountant', 'Driver'];
+export const DEFAULT_DEPARTMENTS = ['Supervisor', 'Accountant', 'Driver', 'Supply Chain Exec'];
+
+export const DEFAULT_UNITS = ['Pcs', 'Box', 'Kg', 'Ltr', 'Mtr', 'Pkt', 'Set'];
 
 export const ROLE_PERMISSIONS = {
   // Only SUPER_ADMIN has a separate role; all other users are handled as department-based users
@@ -59,11 +64,9 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.RETURNS_CREATE,
     PERMISSIONS.RETURNS_UPDATE,
     PERMISSIONS.USERS_READ,
-    PERMISSIONS.USERS_CREATE,
-    PERMISSIONS.USERS_UPDATE,
-    PERMISSIONS.USERS_DELETE,
     PERMISSIONS.REPORTS_READ,
     PERMISSIONS.REPORTS_EXPORT,
+    PERMISSIONS.DEPARTMENTS_MANAGE,
   ],
 };
 

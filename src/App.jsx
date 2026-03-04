@@ -3,8 +3,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
-import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Departments from "./pages/Departments";
 import Unauthorized from "./pages/Unauthorized";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
@@ -15,15 +15,16 @@ import Users from "./pages/Users";
 import Roles from "./pages/Roles";
 import Companies from "./pages/Companies";
 import Activity from "./pages/Activity";
-
+import Profile from "./pages/Profile";
+import Login from "./pages/Login";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
           <Route
@@ -43,6 +44,8 @@ function App() {
             <Route path="roles" element={<Roles />} />
             <Route path="activity" element={<Activity />} />
             <Route path="companies" element={<Companies />} />
+            <Route path="departments" element={<Departments />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>
       </BrowserRouter>

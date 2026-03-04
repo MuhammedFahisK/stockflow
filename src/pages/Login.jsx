@@ -1,143 +1,134 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../config/firebase';
-import { useNavigate } from 'react-router-dom';
-import { LogIn, Mail, Lock, ArrowRight } from 'lucide-react';
+import { auth, db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { useNavigate, Link } from 'react-router-dom';
+import { LogIn, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 import LogoMark from '../components/LogoMark';
-import { logActivity } from '../utils/activityLogger';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
 
-    try {
-      const res = await signInWithEmailAndPassword(auth, email, password);
-      // record login activity
-      logActivity({ userId: res.user.uid, action: 'login' });
-      navigate('/');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+        try {
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+            // Check if user exists in Firestore and has Admin permissions if needed
+            // For now, we allow any valid auth user to login here, but usually admins use this
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
 
-      <div className="relative z-10 w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white bg-opacity-95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white border-opacity-20">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <LogoMark className="h-14 w-14 rounded-2xl" />
-          </div>
+            if (userDoc.exists()) {
+                navigate('/');
+            } else {
+                // Handle case where auth exists but firestore doc doesn't (rare)
+                setError('User record not found in system.');
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+            setError('Invalid email or password. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-2">
-              StockFlow
-            </h1>
-            <p className="text-gray-600 text-sm">Inventory Management System</p>
-          </div>
+    return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Premium background effects */}
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px]"></div>
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]"></div>
 
-          {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-4">
-            {/* Email Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="your@email.com"
-                  required
-                />
-              </div>
+            <div className="relative z-10 w-full max-w-md">
+                <div className="bg-slate-800/50 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 border border-slate-700/50">
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-blue-600 p-4 rounded-2xl shadow-lg shadow-blue-500/20">
+                            <ShieldCheck className="text-white" size={32} />
+                        </div>
+                    </div>
+
+                    <div className="text-center mb-8">
+                        <h1 className="text-3xl font-bold text-white mb-2">Admin Portal</h1>
+                        <p className="text-slate-400">Secure access for stock management system</p>
+                    </div>
+
+                    <form onSubmit={handleLogin} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Work Email</label>
+                            <div className="relative group">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-slate-900/50 border border-slate-700 text-white pl-12 pr-4 py-3.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600"
+                                    placeholder="admin@stockflow.com"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center ml-1">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Password</label>
+                                <a href="#" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Forgot?</a>
+                            </div>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full bg-slate-900/50 border border-slate-700 text-white pl-12 pr-4 py-3.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600"
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-2xl text-sm font-medium animate-pulse">
+                                {error}
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-bold shadow-xl shadow-blue-600/20 transform transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 text-lg"
+                        >
+                            {loading ? (
+                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                                <>
+                                    <LogIn size={20} />
+                                    Sign In
+                                </>
+                            )}
+                        </button>
+                    </form>
+
+                    <div className="mt-8 pt-8 border-t border-slate-700/50 text-center">
+                        <p className="text-slate-500 text-sm">
+                            Not an admin?{' '}
+                            <Link to="/signup" className="text-blue-400 font-bold hover:text-blue-300 transition-colors inline-flex items-center gap-1 group">
+                                Employee Access <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                            </Link>
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-8 text-center text-slate-600 text-xs">
+                    Built with precision by StockFlow Team &copy; 2026
+                </div>
             </div>
-
-            {/* Password Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Login Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? 'Logging in...' : (
-                <>
-                  <LogIn size={18} />
-                  Login
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-center text-gray-600 mb-4">
-              Don't have an account?{' '}
-              <a href="/signup" className="font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1">
-                Sign up
-                <ArrowRight size={14} />
-              </a>
-            </p>
-          </div>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200">
-            <p className="font-semibold text-gray-700 mb-2 text-sm">📝 Demo Account</p>
-            <div className="space-y-1 text-sm text-gray-700">
-              <p><span className="font-medium">Email:</span> admin@stockflow.com</p>
-              <p><span className="font-medium">Password:</span> Admin@123</p>
-            </div>
-          </div>
         </div>
-
-        {/* Bottom Text */}
-        <p className="text-center text-white text-xs mt-6 opacity-75">
-          Secure inventory management powered by Firebase
-        </p>
-      </div>
-    </div>
-  );
+    );
 }

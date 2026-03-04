@@ -1,4 +1,4 @@
-export function printIncomingDetail(inv) {
+export function printGRNDetail(inv) {
   const items = inv.items || [];
   const rows = items
     .map(
@@ -26,6 +26,7 @@ h1{font-size:20px;}
 <h1>GRN: Goods Received Note</h1>
 <div class="meta"><strong>GRN No:</strong> ${inv.invoiceNo} | <strong>Vendor:</strong> ${inv.vendorSupplier || ''}</div>
 <div class="meta"><strong>E-Way Bill:</strong> ${inv.ewayBillNo || 'N/A'} | <strong>Date:</strong> ${inv.receivedDate || ''}</div>
+<div class="meta"><strong>Print Date:</strong> ${new Date().toLocaleString()}</div>
 ${inv.createdBy ? `<div class="meta"><strong>Recorded by:</strong> ${inv.createdBy}</div>` : ''}
 <table><thead><tr><th>Product</th><th>Barcode</th><th>Batch</th><th>Exp Date</th><th>Qty</th><th>Rejected</th><th>Location</th></tr></thead><tbody>${rows}</tbody></table>
 ${inv.checklist ? `
@@ -99,6 +100,7 @@ h1{font-size:20px;}
 <h1>Delivery Note (Confirms goods delivered)</h1>
 <div class="meta"><strong>Delivery Note No:</strong> ${ship.invoiceNo} | <strong>Recipient:</strong> ${ship.recipientName || ''}</div>
 <div class="meta"><strong>E-Way Bill:</strong> ${ship.ewayBillNo || 'N/A'} | <strong>Vehicle:</strong> ${ship.vehicleNo || 'N/A'}</div>
+<div class="meta"><strong>Print Date:</strong> ${new Date().toLocaleString()}</div>
 ${ship.dispatchDate ? `<div class="meta"><strong>Dispatch Date:</strong> ${ship.dispatchDate}</div>` : ''}
 ${ship.createdBy ? `<div class="meta"><strong>Recorded by:</strong> ${ship.createdBy}</div>` : ''}
 <table><thead><tr><th>Product</th><th>Barcode</th><th>Batch</th><th>Exp Date</th><th>Qty Dispatched</th><th>Location</th></tr></thead><tbody>${rows}</tbody></table>
@@ -175,6 +177,7 @@ h1{font-size:20px;}
 <h1>Return Record</h1>
 <div class="meta"><strong>Return No:</strong> ${ret.returnNo} | <strong>Vendor:</strong> ${ret.vendors || ''}</div>
 <div class="meta"><strong>Invoice No:</strong> ${ret.invoiceNo || 'N/A'} | <strong>Return Date:</strong> ${ret.returnDate || ''}</div>
+<div class="meta"><strong>Print Date:</strong> ${new Date().toLocaleString()}</div>
 <div class="meta"><strong>Status:</strong> ${ret.status || ''}</div>
 ${ret.createdBy ? `<div class="meta"><strong>Recorded by:</strong> ${ret.createdBy}</div>` : ''}
 <table><thead><tr><th>Product</th><th>Batch</th><th>Exp Date</th><th>Qty</th><th>Reason</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>

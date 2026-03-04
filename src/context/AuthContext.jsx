@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, onSnapshot, writeBatch, query, where } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -10,56 +10,75 @@ const SELECTED_COMPANY_KEY = 'stockflow_selected_company';
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [userDept, setUserDept] = useState(null);
   const [userCompany, setUserCompany] = useState(null);
   const [companies, setCompanies] = useState([]);
+  const [userName, setUserName] = useState(null);
+  const [userPhoto, setUserPhoto] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeUser = () => { };
+    let unsubscribeCompanies = () => { };
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // Fetch user role and company from Firestore
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUserRole(userData.role);
-          const baseCompany = userData.company || null;
-          const saved = localStorage.getItem(SELECTED_COMPANY_KEY);
-          setUserCompany(saved || baseCompany);
-        }
+
+        // REAL-TIME USER DATA
+        unsubscribeUser = onSnapshot(doc(db, 'users', currentUser.uid), (snap) => {
+          if (snap.exists()) {
+            const userData = snap.data();
+            setUserRole(userData.role);
+            setUserName(userData.fullName || 'User');
+            setUserDept(userData.department || null);
+            setUserPhoto(userData.photoURL || null);
+            setUserData(userData);
+
+            const baseCompany = userData.company || null;
+            const saved = localStorage.getItem(SELECTED_COMPANY_KEY);
+            setUserCompany(saved || baseCompany);
+          }
+          setLoading(false);
+        });
+
+        // REAL-TIME COMPANIES LIST
+        unsubscribeCompanies = onSnapshot(collection(db, 'companies'), (snap) => {
+          const list = snap.docs
+            .map((d) => d.data()?.name)
+            .filter(Boolean)
+            .sort((a, b) => String(a).localeCompare(String(b)));
+          setCompanies(list);
+
+          // Default selection logic
+          if (!localStorage.getItem(SELECTED_COMPANY_KEY) && list.length > 0) {
+            setUserCompany(list[0]);
+            localStorage.setItem(SELECTED_COMPANY_KEY, list[0]);
+          }
+        });
+
       } else {
         setUser(null);
         setUserRole(null);
+        setUserName(null);
+        setUserDept(null);
+        setUserPhoto(null);
+        setUserData(null);
         setUserCompany(null);
         setCompanies([]);
+        unsubscribeUser();
+        unsubscribeCompanies();
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    const loadCompanies = async () => {
-      if (!user) return;
-
-      // Fetch all companies so any user can select them
-      const snap = await getDocs(collection(db, 'companies'));
-      const list = snap.docs
-        .map((d) => d.data()?.name)
-        .filter(Boolean)
-        .sort((a, b) => String(a).localeCompare(String(b)));
-      setCompanies(list);
-
-      // If no company is selected yet, default to the first available
-      if (!userCompany && list.length > 0) {
-        setUserCompany(list[0]);
-        localStorage.setItem(SELECTED_COMPANY_KEY, list[0]);
-      }
+    return () => {
+      unsubscribeAuth();
+      unsubscribeUser();
+      unsubscribeCompanies();
     };
-
-    loadCompanies().catch((e) => console.error('Error loading companies', e));
-  }, [user, userRole, userCompany]);
+  }, []);
 
   const setActiveCompany = (companyName) => {
     setUserCompany(companyName);
@@ -79,10 +98,66 @@ export const AuthProvider = ({ children }) => {
       createdBy: user?.uid || null,
     });
 
-    if (userRole === 'SUPER_ADMIN') {
-      setCompanies((prev) => Array.from(new Set([...(prev || []), name])).sort((a, b) => a.localeCompare(b)));
-    }
     setActiveCompany(name);
+  };
+
+  const deleteCompany = async (companyName) => {
+    if (!companyName) return;
+    await deleteDoc(doc(db, 'companies', companyName));
+
+    if (userCompany === companyName) {
+      setActiveCompany(null);
+    }
+  };
+
+  const updateCompany = async (oldName, newName) => {
+    if (!oldName || !newName || oldName === newName) return;
+    const cleanNewName = newName.trim();
+    if (!cleanNewName) return;
+
+    // This is complex because name is the document ID and used as a foreign key
+    // 1. Create new company doc
+    const oldDocRef = doc(db, 'companies', oldName);
+    const oldSnap = await getDoc(oldDocRef);
+    if (!oldSnap.exists()) return;
+
+    const data = oldSnap.data();
+    await setDoc(doc(db, 'companies', cleanNewName), {
+      ...data,
+      name: cleanNewName,
+      updatedAt: new Date()
+    });
+
+    // 2. Delete old company doc
+    await deleteDoc(oldDocRef);
+
+    // 3. Update references in other collections
+    const batch = writeBatch(db);
+    const collectionsToUpdate = [
+      'users',
+      'products',
+      'departments',
+      'incomingStock',
+      'outgoingStock',
+      'returns',
+      'activities',
+      'vendors'
+    ];
+
+    for (const collName of collectionsToUpdate) {
+      const q = query(collection(db, collName), where('company', '==', oldName));
+      const snap = await getDocs(q);
+      snap.forEach((dRef) => {
+        batch.update(doc(db, collName, dRef.id), { company: cleanNewName });
+      });
+    }
+
+    await batch.commit();
+
+    // 4. Update current selection if it was the modified company
+    if (userCompany === oldName) {
+      setActiveCompany(cleanNewName);
+    }
   };
 
   const logout = async () => {
@@ -91,14 +166,20 @@ export const AuthProvider = ({ children }) => {
 
   const value = useMemo(() => ({
     user,
+    userName,
+    userPhoto,
+    userData,
     userRole,
+    userDept,
     userCompany,
     companies,
     setActiveCompany,
     createCompany,
+    updateCompany,
+    deleteCompany,
     loading,
     logout,
-  }), [user, userRole, userCompany, companies, loading]);
+  }), [user, userName, userPhoto, userData, userRole, userDept, userCompany, companies, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

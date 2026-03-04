@@ -13,6 +13,7 @@ import {
   X,
   ChevronDown,
   Activity,
+  Briefcase,
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -26,7 +27,7 @@ export default function Sidebar() {
   const [newCompanyName, setNewCompanyName] = useState('');
   const [creatingCompany, setCreatingCompany] = useState(false);
 
-  const { user, userRole, userCompany, companies, setActiveCompany, createCompany, logout } = useAuth();
+  const { user, userName, userRole, userDept, userCompany, companies, setActiveCompany, createCompany, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -39,7 +40,7 @@ export default function Sidebar() {
       console.warn('failed to log logout', e);
     }
     await logout();
-    navigate('/login');
+    navigate('/signup');
   };
 
   const linkClass =
@@ -81,6 +82,12 @@ export default function Sidebar() {
       to: '/users',
       icon: Users,
       permission: PERMISSIONS.USERS_READ,
+    },
+    {
+      label: 'Departments',
+      to: '/departments',
+      icon: Briefcase,
+      permission: null,
     },
     {
       label: 'Roles',
@@ -255,13 +262,32 @@ export default function Sidebar() {
           </div>
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-200 space-y-2">
+        {/* Profile & Footer */}
+        <div className="p-4 border-t border-gray-200 bg-gray-50/50 space-y-4">
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-2 py-2 rounded-xl transition-all ${isActive ? 'bg-white shadow-sm border border-gray-200 ring-1 ring-blue-500/10' : 'hover:bg-white hover:shadow-sm hover:border hover:border-gray-200 transition-all'
+              }`
+            }
+            onClick={() => setIsOpen(false)}
+          >
+
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">
+                {userName || user?.email?.split('@')[0] || 'User'}
+              </p>
+              <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
+                {userRole === 'SUPER_ADMIN' ? 'Super Admin' : (userDept || 'Dept. User')}
+              </p>
+            </div>
+          </NavLink>
+
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors group"
           >
-            <LogOut size={18} />
+            <LogOut size={18} className="group-hover:rotate-12 transition-transform" />
             <span>Logout</span>
           </button>
         </div>

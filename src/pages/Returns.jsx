@@ -11,24 +11,29 @@ import {
   doc,
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { Plus, X, Download, Eye, Printer } from 'lucide-react';
+import { Plus, X, Download, Eye, Printer, Briefcase } from 'lucide-react';
 import { exportToExcel } from '../utils/excelExport';
 import { printReturnsDetail } from '../utils/printDetail';
-import { PERMISSIONS, hasPermission } from '../utils/permissions';
+import { PERMISSIONS, hasPermission, DEFAULT_UNITS } from '../utils/permissions';
 import SignaturePad from '../components/SignaturePad';
 
 export default function Returns() {
-  const { user, userCompany, userRole } = useAuth();
+  const { user, userCompany, userRole, userName } = useAuth();
   const [returns, setReturns] = useState([]);
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [companyUsers, setCompanyUsers] = useState([]);
+  const [vendors, setVendors] = useState([]);
 
   const [formData, setFormData] = useState({
     returnNo: '',
     invoiceNo: '',
+    invoiceAmount: '',
+    ewayBillNo: '',
+    isEwayBillRequired: false,
     returnDate: new Date().toISOString().split('T')[0],
     vendors: '',
     items: [
@@ -38,7 +43,7 @@ export default function Returns() {
         batchNo: '',
         mfgDate: '',
         expDate: '',
-        unit: 'Pcs',
+        unit: DEFAULT_UNITS[0],
         qtyReturned: '',
         reason: '',
         action: 'dispose',
@@ -88,9 +93,33 @@ export default function Returns() {
   const returnActions = ['dispose', 'move_to_stock', 'rework', 'scrap'];
 
   useEffect(() => {
-    fetchProducts();
-    fetchReturns();
+    if (userCompany) {
+      fetchProducts();
+      fetchReturns();
+      fetchCompanyUsers();
+      fetchVendors();
+    }
   }, [userCompany]);
+
+  const fetchVendors = async () => {
+    try {
+      const q = query(collection(db, 'vendors'), where('company', '==', userCompany));
+      const snapshot = await getDocs(q);
+      setVendors(snapshot.docs.map(d => d.data().name));
+    } catch (err) {
+      console.error('Error fetching vendors:', err);
+    }
+  };
+
+  const fetchCompanyUsers = async () => {
+    try {
+      const q = query(collection(db, 'users'), where('company', '==', userCompany));
+      const res = await getDocs(q);
+      setCompanyUsers(res.docs.map(d => d.data()));
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -219,10 +248,19 @@ export default function Returns() {
         return;
       }
 
-      const createdBy =
-        user?.displayName || user?.email || user?.uid || '';
+      const createdBy = userName || user?.email || 'User';
 
-      await addDoc(collection(db, 'returns'), {
+      // Save Vendor if new
+      if (formData.vendors && !vendors.includes(formData.vendors)) {
+        await addDoc(collection(db, 'vendors'), {
+          name: formData.vendors,
+          company: userCompany,
+          createdAt: new Date()
+        });
+        fetchVendors();
+      }
+
+      const ref = await addDoc(collection(db, 'returns'), {
         ...formData,
         items: validItems,
         company: userCompany,
@@ -236,6 +274,9 @@ export default function Returns() {
       setFormData({
         returnNo: '',
         invoiceNo: '',
+        invoiceAmount: '',
+        ewayBillNo: '',
+        isEwayBillRequired: false,
         returnDate: new Date().toISOString().split('T')[0],
         vendors: '',
         items: [
@@ -476,9 +517,30 @@ export default function Returns() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Invoice Amount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.invoiceAmount}
+                      onChange={(e) => {
+                        const amount = e.target.value;
+                        setFormData({
+                          ...formData,
+                          invoiceAmount: amount,
+                          isEwayBillRequired: Number(amount) > 50000,
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      placeholder="50000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Vendor/Supplier *
                     </label>
                     <input
+                      list="vendor-options"
                       type="text"
                       value={formData.vendors}
                       onChange={(e) =>
@@ -488,6 +550,9 @@ export default function Returns() {
                       placeholder="Vendor/Supplier Name"
                       required
                     />
+                    <datalist id="vendor-options">
+                      {vendors.map((v, i) => <option key={i} value={v} />)}
+                    </datalist>
                   </div>
 
                   <div>
@@ -503,6 +568,35 @@ export default function Returns() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
                   </div>
+
+                  {formData.isEwayBillRequired && (
+                    <div className="md:col-span-2 bg-orange-50 p-4 rounded-lg border border-orange-200 flex flex-col md:flex-row gap-4 items-center">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          E-Way Bill Number <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.ewayBillNo}
+                          onChange={(e) => setFormData({ ...formData, ewayBillNo: e.target.value })}
+                          className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-600"
+                          placeholder="Ex: 123456789012"
+                          required={formData.isEwayBillRequired}
+                        />
+                      </div>
+                      <div className="flex items-center mt-4 md:mt-0">
+                        <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-orange-900">
+                          <input
+                            type="checkbox"
+                            checked={formData.isEwayBillRequired}
+                            onChange={(e) => setFormData({ ...formData, isEwayBillRequired: e.target.checked })}
+                            className="w-5 h-5 text-orange-600 rounded"
+                          />
+                          E-Way Bill Requirement Fullfilled
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Items Section */}
@@ -596,12 +690,14 @@ export default function Returns() {
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Unit
                           </label>
-                          <input
-                            type="text"
+                          <select
                             value={item.unit}
-                            readOnly
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100"
-                          />
+                            onChange={(e) => handleItemChange(index, 'unit', e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+                          >
+                            <option value="">Select</option>
+                            {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
                         </div>
                       </div>
 
@@ -856,8 +952,7 @@ export default function Returns() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <label className="block text-xs font-bold text-purple-600 mb-1">Supervisor Name</label>
-                          <input
-                            type="text"
+                          <select
                             value={formData.checklist.certifications.supervisorName}
                             onChange={(e) => setFormData({
                               ...formData,
@@ -866,14 +961,15 @@ export default function Returns() {
                                 certifications: { ...formData.checklist.certifications, supervisorName: e.target.value }
                               }
                             })}
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
-                            placeholder="Warehouse Supervisor"
-                          />
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Select Supervisor</option>
+                            {companyUsers.map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-purple-600 mb-1">Supply Chain Exec</label>
-                          <input
-                            type="text"
+                          <select
                             value={formData.checklist.certifications.supplyChainExecName}
                             onChange={(e) => setFormData({
                               ...formData,
@@ -882,14 +978,15 @@ export default function Returns() {
                                 certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value }
                               }
                             })}
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
-                            placeholder="S.C. Executive"
-                          />
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Select SC Exec</option>
+                            {companyUsers.map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-purple-600 mb-1">Accounts Manager</label>
-                          <input
-                            type="text"
+                          <select
                             value={formData.checklist.certifications.accountsManagerName}
                             onChange={(e) => setFormData({
                               ...formData,
@@ -898,9 +995,11 @@ export default function Returns() {
                                 certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value }
                               }
                             })}
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm"
-                            placeholder="Accounts Manager"
-                          />
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Select Accounts Mgr</option>
+                            {companyUsers.map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                          </select>
                         </div>
                       </div>
                     </div>

@@ -9,12 +9,11 @@ export default function LogoMark({ className }) {
         'inline-flex items-center justify-center',
         className
       )}
-      aria-hidden="true"
     >
       <img
         src={TGHLogo}
         alt="TGH - Thara Global Holdings"
-        className="h-16 w-auto"
+        className="h-12 w-auto object-contain"
       />
     </div>
   );

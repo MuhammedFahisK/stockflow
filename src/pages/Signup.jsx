@@ -1,41 +1,23 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, getDocs, setDoc, doc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { setDoc, doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { useNavigate } from 'react-router-dom';
-import { UserPlus, Mail, Lock, Building2, User, ArrowRight, ChevronDown } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { UserPlus, Mail, Lock, Building2, User, ArrowRight, Briefcase } from 'lucide-react';
 import LogoMark from '../components/LogoMark';
+import { DEFAULT_DEPARTMENTS } from '../utils/permissions';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
     fullName: '',
-    companyName: '',
+    password: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [existingCompanies, setExistingCompanies] = useState([]);
-  const [showCompanyInput, setShowCompanyInput] = useState(false);
   const navigate = useNavigate();
-
-  React.useEffect(() => {
-    const fetchCompanies = async () => {
-      const snap = await getDocs(collection(db, 'companies'));
-      const list = snap.docs.map(d => d.id).sort();
-      setExistingCompanies(list);
-    };
-    fetchCompanies();
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'companyName' && value === '__NEW__') {
-      setShowCompanyInput(true);
-      setFormData({ ...formData, companyName: '' });
-      return;
-    }
     setFormData({
       ...formData,
       [name]: value,
@@ -46,42 +28,69 @@ export default function Signup() {
     e.preventDefault();
     setError('');
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+    if (!formData.fullName.trim() || !formData.password.trim()) {
+      setError('Please enter your full name and password');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Create user account
-      const { user } = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
+      // 1. Verify user exists in the system
+      const usersRef = collection(db, 'users');
+      const q = query(
+        usersRef,
+        where('fullName', '==', formData.fullName)
       );
 
-      // Save user data to Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        email: formData.email,
-        fullName: formData.fullName,
-        role: 'SUPER_ADMIN',
-        company: formData.companyName,
-        createdAt: new Date(),
-        status: 'active',
-      });
+      const querySnapshot = await getDocs(q);
+      if (querySnapshot.empty) {
+        setError('User not found. Please contact your Admin for access.');
+        setLoading(false);
+        return;
+      }
 
-      // Create company document
-      await setDoc(doc(db, 'companies', formData.companyName), {
-        name: formData.companyName,
-        adminId: user.uid,
-        createdAt: new Date(),
-        status: 'active',
-      });
+      // Find the user whose password matches
+      const userDoc = querySnapshot.docs.find(doc => doc.data().initialPassword === formData.password);
+
+      if (!userDoc) {
+        setError('Invalid password. Please use the password provided by your Admin.');
+        setLoading(false);
+        return;
+      }
+
+      const userData = userDoc.data();
+
+      // 3. Handle First-time Signup (Activation) vs Login
+      if (userData.status === 'pending_signup') {
+        // Create Firebase Auth account using the pre-stored email and admin password
+        const { user } = await createUserWithEmailAndPassword(
+          auth,
+          userData.email,
+          formData.password
+        );
+
+        // Link the Firestore document to the Auth UID and mark as active
+        await setDoc(doc(db, 'users', userDoc.id), {
+          ...userData,
+          uid: user.uid,
+          status: 'active',
+          lastLoginAt: new Date(),
+        });
+      } else {
+        // Already active - standard login
+        await signInWithEmailAndPassword(auth, userData.email, formData.password);
+
+        // Update last login
+        await setDoc(doc(db, 'users', userDoc.id), {
+          ...userData,
+          lastLoginAt: new Date(),
+        }, { merge: true });
+      }
 
       navigate('/');
     } catch (err) {
+      console.error('Auth error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -89,204 +98,89 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-900 via-sky-800 to-cyan-500 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Elements */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-sky-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
+      <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
 
-      <div className="relative z-10 w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white bg-opacity-95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white border-opacity-20">
-          {/* Logo */}
+      <div className="relative z-10 w-full max-w-md my-8">
+        <div className="bg-white bg-opacity-95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white border-opacity-20 animate-in fade-in zoom-in duration-300">
           <div className="flex justify-center mb-6">
-            <LogoMark className="h-14 w-14 rounded-2xl" />
+            <LogoMark className="h-16 w-16" />
           </div>
 
-          {/* Title */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-sky-900 to-cyan-500 bg-clip-text text-transparent mb-2">
-              Join StockFlow
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-800 bg-clip-text text-transparent mb-1">
+              Sign Up
             </h1>
-            <p className="text-gray-600 text-sm">Create your account and get started</p>
+            <p className="text-gray-500 text-sm">Join using credentials provided by Admin</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSignup} className="space-y-4">
-            {/* Full Name Field */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Full Name
-              </label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 ml-1">Full Name</label>
               <div className="relative">
-                <User className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                <User className="absolute left-3 top-3 text-gray-400" size={18} />
                 <input
                   type="text"
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="Your Name"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-gray-800"
+                  placeholder="John Doe"
                   required
                 />
               </div>
             </div>
 
-            {/* Company Selection Field */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Company
-              </label>
-              <div className="space-y-3">
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                  {!showCompanyInput ? (
-                    <select
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white transition-all"
-                      required
-                    >
-                      <option value="">Choose a company...</option>
-                      {existingCompanies.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                      <option value="__NEW__">+ Add New Company</option>
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="New Company Name"
-                      required
-                      autoFocus
-                    />
-                  )}
-                  {!showCompanyInput && (
-                    <ChevronDown className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
-                  )}
-                </div>
-
-                {showCompanyInput ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCompanyInput(false);
-                      setFormData({ ...formData, companyName: '' });
-                    }}
-                    className="text-xs text-blue-600 font-medium hover:underline"
-                  >
-                    Back to selection
-                  </button>
-                ) : (
-                  formData.companyName === '__NEW__' && (
-                    <div className="animate-in fade-in slide-in-from-top-1">
-                      {setShowCompanyInput(true)}
-                      {setFormData({ ...formData, companyName: '' })}
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Email Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 ml-1">Password</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="your@email.com"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
                 <input
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  placeholder="••••••"
                   required
                 />
               </div>
             </div>
 
-            {/* Confirm Password Field */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-2 rounded-xl text-xs font-semibold animate-shake">
                 {error}
               </div>
             )}
 
-            {/* Sign Up Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-sky-900 to-cyan-500 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 transform transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? 'Creating Account...' : (
+              {loading ? 'Processing...' : (
                 <>
                   <UserPlus size={18} />
-                  Create Account
+                  Sign Up
                 </>
               )}
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-center text-gray-600">
+          <div className="mt-6 pt-4 border-t border-gray-100 text-center space-y-3">
+            <p className="text-sm text-gray-500">
               Already have an account?{' '}
-              <a href="/login" className="font-semibold text-cyan-100 hover:text-white inline-flex items-center gap-1">
-                Login
-                <ArrowRight size={14} />
-              </a>
+              <Link to="/login" className="text-blue-600 font-bold hover:text-blue-800 transition-colors">
+                Sign In
+              </Link>
+            </p>
+            <p className="text-gray-400 text-xs italic">
+              Access restricted to authorized personnel only.
             </p>
           </div>
         </div>
-
-        {/* Bottom Text */}
-        <p className="text-center text-white text-xs mt-6 opacity-75">
-          You'll be set as SUPER_ADMIN for your company
-        </p>
       </div>
     </div>
   );
