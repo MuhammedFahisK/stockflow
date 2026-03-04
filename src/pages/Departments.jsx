@@ -37,7 +37,7 @@ export default function Departments() {
     const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const canManage = hasPermission(userRole, PERMISSIONS.DEPARTMENTS_MANAGE);
+    const canManage = userRole === 'SUPER_ADMIN';
 
     useEffect(() => {
         if (userCompany) {

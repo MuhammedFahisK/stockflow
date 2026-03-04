@@ -77,10 +77,13 @@ export const ROLE_LABELS = {
 };
 
 export const hasPermission = (userRole, permission) => {
-  // Until full role management is wired to the backend,
-  // treat missing roles as having access to all features.
   if (!userRole) {
-    return true;
+    return false;
+  }
+
+  // Custom per-user permission array (when stored in Firestore as a JSON string)
+  if (Array.isArray(userRole)) {
+    return userRole.includes(permission);
   }
 
   // Backwards compatibility: legacy roles (ADMIN, MANAGER, OPERATOR, VIEWER)

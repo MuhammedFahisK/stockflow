@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function hasCallerDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Safe accessor for caller data; returns empty object if missing.
+    function callerData() {
+      return hasCallerDoc()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        : {};
+    }
+
+    function callerCompany() {
+      return hasCallerDoc() ? callerData().company : null;
+    }
+
+    function isSuperAdmin() {
+      return hasCallerDoc() && callerData().role == 'SUPER_ADMIN';
+    }
+
+    // ── /users ────────────────────────────────────────────────────────────────
+    // • Own doc: always readable/writable by the owner (needed by AuthContext
+    //   onSnapshot and the activation flow in Signup.jsx).
+    // • Other users' docs: readable if they belong to the same company.
+    // • Pending-signup docs (created by Admin, no UID yet): any authenticated
+    //   user may read them so Signup.jsx can query by email + status.
+    // • Delete: owner can delete their own; SUPER_ADMIN can delete any;
+    //   activation flow can delete the temp pending_signup doc.
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        isOwner(userId) ||
+        isSuperAdmin() ||
+        resource.data.status == 'pending_signup' ||
+        (callerCompany() != null && resource.data.company == callerCompany())
+      );
+      allow create: if isAuthenticated() && (
+        isOwner(userId) ||                          // activation writes own UID doc
+        isSuperAdmin() ||                           // super admin creates users
+        // Admin creates a pending_signup doc (random ID, not auth.uid).
+        // Safe: status is locked to 'pending_signup' and company must match caller.
+        (request.resource.data.status == 'pending_signup' &&
+         callerCompany() != null &&
+         request.resource.data.company == callerCompany())
+      );
+      allow update: if isAuthenticated() && (
+        isOwner(userId) ||
+        isSuperAdmin() ||
+        (callerCompany() != null && resource.data.company == callerCompany())
+      );
+      allow delete: if isAuthenticated() && (
+        isOwner(userId) ||
+        isSuperAdmin() ||
+        resource.data.status == 'pending_signup' // activation cleans up temp doc
+      );
+    }
+
+    // ── /companies ────────────────────────────────────────────────────────────
+    // All authenticated users need to read the company list (AuthContext).
+    // Only SUPER_ADMIN may create / update / delete companies.
+
+    match /companies/{companyId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated() && isSuperAdmin();
+    }
+
+    // ── All other collections ─────────────────────────────────────────────────
+    // Data is scoped to the caller's company.
+
+    match /{collection}/{docId} {
+      allow read: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (callerCompany() != null && resource.data.company == callerCompany())
+      );
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (callerCompany() != null && request.resource.data.company == callerCompany())
+      );
+      allow update, delete: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (callerCompany() != null && resource.data.company == callerCompany())
+      );
+    }
+
+    // Cover nested sub-collections (e.g. future use).
+    match /{collection}/{docId}/{rest=**} {
+      allow read, write: if isAuthenticated() && (
+        isSuperAdmin() || (
+          callerCompany() != null &&
+          get(/databases/$(database)/documents/$(collection)/$(docId)).data.company == callerCompany()
+        )
+      );
+    }
+  }
+}

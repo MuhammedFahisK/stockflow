@@ -9,10 +9,10 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  serverTimestamp,
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
-import { Plus, X, Edit2, Trash2, Mail, User } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, Mail, User, Search, Filter } from 'lucide-react';
 import {
   PERMISSIONS,
   hasPermission,
@@ -28,6 +28,8 @@ export default function Users() {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDept, setFilterDept] = useState('All');
 
 
   const [formData, setFormData] = useState({
@@ -42,11 +44,13 @@ export default function Users() {
   const canManage = hasPermission(userRole, PERMISSIONS.USERS_CREATE);
 
   useEffect(() => {
+    if (!userCompany) return;
     fetchUsers();
     fetchDepartments();
   }, [userCompany]);
 
   const fetchDepartments = async () => {
+    if (!userCompany) return;
     try {
       const q = query(collection(db, 'departments'), where('company', '==', userCompany));
       const snapshot = await getDocs(q);
@@ -58,6 +62,7 @@ export default function Users() {
   };
 
   const fetchUsers = async () => {
+    if (!userCompany) return;
     try {
       setLoading(true);
       const q = query(collection(db, 'users'), where('company', '==', userCompany));
@@ -83,6 +88,13 @@ export default function Users() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!userCompany) {
+      alert('Please select a company before adding or editing employees.');
+      return;
+    }
+
+    const email = formData.email.trim().toLowerCase();
+    const fullName = formData.fullName.trim();
     try {
       const isSuperAdminRole = formData.role === 'SUPER_ADMIN';
       const departmentToSave = isSuperAdminRole ? 'SUPER_ADMIN' : formData.department || null;
@@ -90,7 +102,7 @@ export default function Users() {
       if (editingUser) {
         // Update user
         await updateDoc(doc(db, 'users', editingUser.id), {
-          fullName: formData.fullName,
+          fullName,
           // keep existing role so SUPER_ADMIN flag cannot be changed here
           role: editingUser.role || 'DEPARTMENT_USER',
           department: departmentToSave,
@@ -99,26 +111,26 @@ export default function Users() {
           userId: auth?.currentUser?.uid || null,
           company: userCompany,
           action: 'user:update',
-          details: `id=${editingUser.id} name=${formData.fullName}`,
+          details: `id=${editingUser.id} name=${fullName}`,
         });
       } else {
         // Create new user (pending signup sequence)
         const ref = await addDoc(collection(db, 'users'), {
-          email: formData.email,
-          fullName: formData.fullName,
+          email,
+          fullName,
           role: 'DEPARTMENT_USER',
           department: departmentToSave,
-          company: formData.company || userCompany,
+          company: userCompany,
           employeeId: formData.employeeId,
           initialPassword: formData.password,
           status: 'pending_signup',
-          createdAt: new Date(),
+          createdAt: serverTimestamp(),
         });
         logActivity({
           userId: auth?.currentUser?.uid || null,
           company: userCompany,
           action: 'user:create',
-          details: `id=${ref.id} name=${formData.fullName}`,
+          details: `id=${ref.id} name=${fullName}`,
         });
       }
 
@@ -135,7 +147,10 @@ export default function Users() {
       });
     } catch (error) {
       console.error('Error saving user:', error);
-      alert('Error saving user: ' + error.message);
+      const message = error?.code === 'permission-denied'
+        ? 'Permission denied while saving user. Please ensure your Firestore rules and company selection are correct.'
+        : error?.message || 'Error saving user.';
+      alert(message);
     }
   };
 
@@ -202,6 +217,33 @@ export default function Users() {
         )}
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search by name, email or ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          />
+        </div>
+        <div className="w-full md:w-64">
+          <select
+            value={filterDept}
+            onChange={(e) => setFilterDept(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          >
+            <option value="All">All Departments</option>
+            {departments.map(dept => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+            <option value="Unassigned">Unassigned</option>
+          </select>
+        </div>
+      </div>
+
       {/* Users Table */}
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {loading ? (
@@ -211,97 +253,114 @@ export default function Users() {
         ) : (
           <div className="overflow-x-auto">
             {Object.entries(
-              users.reduce((acc, user) => {
-                const dept = user.department || 'Unassigned';
-                if (!acc[dept]) acc[dept] = [];
-                acc[dept].push(user);
-                return acc;
-              }, {})
-            ).map(([department, deptUsers]) => (
-              <div key={department} className="mb-8">
-                <div className="bg-gray-100 px-6 py-3 border-b border-gray-200">
-                  <h3 className="text-lg font-bold text-gray-800">{department}</h3>
-                </div>
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-semibold">User ID</th>
-                      <th className="px-4 py-3 text-left font-semibold">Name</th>
-                      <th className="px-4 py-3 text-left font-semibold">Email</th>
-                      <th className="px-4 py-3 text-left font-semibold">Company</th>
-                      <th className="px-4 py-3 text-left font-semibold">Role</th>
-                      <th className="px-4 py-3 text-left font-semibold">Status</th>
-                      <th className="px-4 py-3 text-center font-semibold">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {deptUsers.map((user) => (
-                      <tr key={user.id} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-blue-700 font-bold bg-blue-50 px-2 py-1 rounded">
-                            {user.employeeId || '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="bg-blue-100 text-blue-600 p-2 rounded-full">
-                              <User size={16} />
-                            </div>
-                            <span className="font-medium">{user.fullName}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Mail size={14} />
-                            {user.email}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
-                            {user.company || '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
-                            {user.role === 'SUPER_ADMIN'
-                              ? ROLE_LABELS.SUPER_ADMIN
-                              : ROLE_LABELS.DEPARTMENT_USER}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.status === 'active'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
-                            }`}>
-                            {user.status || 'active'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center space-x-2">
-                          {canManage && (
-                            <>
-                              <button
-                                onClick={() => handleEdit(user)}
-                                className="text-blue-600 hover:text-blue-800 inline-block"
-                                title="Edit"
-                              >
-                                <Edit2 size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(user.id)}
-                                className="text-red-600 hover:text-red-800 inline-block"
-                                title="Delete"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </>
-                          )}
-                        </td>
+              users
+                .filter(u => {
+                  const matchesSearch =
+                    u.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    u.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
+
+                  const dept = u.department || 'Unassigned';
+                  const matchesDept = filterDept === 'All' || dept === filterDept;
+
+                  return matchesSearch && matchesDept;
+                })
+                .reduce((acc, user) => {
+                  const dept = user.department || 'Unassigned';
+                  if (!acc[dept]) acc[dept] = [];
+                  acc[dept].push(user);
+                  return acc;
+                }, {})
+            )
+              .sort((a, b) => a[0].localeCompare(b[0])) // Sort departments alphabetically
+              .map(([department, deptUsers]) => (
+                <div key={department} className="mb-0 border-b border-gray-100 last:border-0">
+                  <div className="bg-gray-50/50 px-6 py-3 flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-gray-600 uppercase tracking-wider">{department}</h3>
+                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">
+                      {deptUsers.length}
+                    </span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold">User ID</th>
+                        <th className="px-4 py-3 text-left font-semibold">Name</th>
+                        <th className="px-4 py-3 text-left font-semibold">Email</th>
+                        <th className="px-4 py-3 text-left font-semibold">Company</th>
+                        <th className="px-4 py-3 text-left font-semibold">Role</th>
+                        <th className="px-4 py-3 text-left font-semibold">Status</th>
+                        <th className="px-4 py-3 text-center font-semibold">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+                    </thead>
+                    <tbody>
+                      {deptUsers.map((user) => (
+                        <tr key={user.id} className="border-b hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-blue-700 font-bold bg-blue-50 px-2 py-1 rounded">
+                              {user.employeeId || '—'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="bg-blue-100 text-blue-600 p-2 rounded-full">
+                                <User size={16} />
+                              </div>
+                              <span className="font-medium">{user.fullName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <Mail size={14} />
+                              {user.email}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">
+                              {user.company || '—'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
+                              {user.role === 'SUPER_ADMIN'
+                                ? ROLE_LABELS.SUPER_ADMIN
+                                : ROLE_LABELS.DEPARTMENT_USER}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.status === 'active'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-700'
+                              }`}>
+                              {user.status || 'active'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center space-x-2">
+                            {canManage && (
+                              <>
+                                <button
+                                  onClick={() => handleEdit(user)}
+                                  className="text-blue-600 hover:text-blue-800 inline-block"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(user.id)}
+                                  className="text-red-600 hover:text-red-800 inline-block"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
           </div>
         )}
       </div>

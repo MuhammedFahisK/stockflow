@@ -54,8 +54,8 @@ export default function Roles() {
             key={role}
             onClick={() => setSelectedRole(role)}
             className={`p-3 rounded-lg font-medium text-sm transition ${selectedRole === role
-                ? `${roleColors[role]} ring-2 ring-offset-2 ring-current`
-                : `${roleColors[role]} opacity-60 hover:opacity-100`
+              ? `${roleColors[role]} ring-2 ring-offset-2 ring-current`
+              : `${roleColors[role]} opacity-60 hover:opacity-100`
               }`}
           >
             {ROLE_LABELS[role] || role}
@@ -88,8 +88,8 @@ export default function Roles() {
                     <div
                       key={permission}
                       className={`p-3 rounded-lg border-2 flex items-center gap-2 ${hasIt
-                          ? 'border-green-200 bg-green-50'
-                          : 'border-red-200 bg-red-50'
+                        ? 'border-green-200 bg-green-50'
+                        : 'border-red-200 bg-red-50'
                         }`}
                     >
                       {hasIt ? (

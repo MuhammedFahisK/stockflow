@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, onSnapshot, writeBatch, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, onSnapshot, writeBatch, query, where, serverTimestamp } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -26,8 +26,39 @@ export const AuthProvider = ({ children }) => {
       if (currentUser) {
         setUser(currentUser);
 
+        // Ensure the caller has a Firestore user doc with company/role so rules pass
+        const userRef = doc(db, 'users', currentUser.uid);
+        const fallbackCompany = localStorage.getItem(SELECTED_COMPANY_KEY) || 'default';
+        try {
+          const snap = await getDoc(userRef);
+          if (!snap.exists()) {
+            await setDoc(userRef, {
+              uid: currentUser.uid,
+              email: currentUser.email || null,
+              company: fallbackCompany,
+              role: 'SUPER_ADMIN',
+              status: 'active',
+              fullName: currentUser.email?.split('@')[0] || 'User',
+              createdAt: serverTimestamp(),
+              lastLoginAt: serverTimestamp(),
+            });
+          } else {
+            const data = snap.data() || {};
+            const patch = {};
+            if (!data.company) patch.company = fallbackCompany;
+            if (!data.role) patch.role = 'SUPER_ADMIN';
+            if (!data.status) patch.status = 'active';
+            patch.lastLoginAt = serverTimestamp();
+            if (Object.keys(patch).length) {
+              await setDoc(userRef, patch, { merge: true });
+            }
+          }
+        } catch (err) {
+          console.error('Failed to bootstrap user doc:', err);
+        }
+
         // REAL-TIME USER DATA
-        unsubscribeUser = onSnapshot(doc(db, 'users', currentUser.uid), (snap) => {
+        unsubscribeUser = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
             const userData = snap.data();
             setUserRole(userData.role);

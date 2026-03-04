@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { storage, db } from '../config/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateDoc, doc, setDoc } from 'firebase/firestore';
+import { updatePassword } from 'firebase/auth';
 import {
     User, Mail, Shield, Building2, Briefcase, Camera, ChevronRight, Edit3, Phone, Hash, CreditCard, X
 } from 'lucide-react';
@@ -11,6 +12,8 @@ export default function Profile() {
     const { user, userName, userRole, userDept, userCompany, userData } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({});
+    const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+    const [passwordStatus, setPasswordStatus] = useState('');
 
 
     const handleEditSave = async (e) => {
@@ -21,6 +24,28 @@ export default function Profile() {
         } catch (err) {
             console.error(err);
             alert('Failed to save details: ' + err.message);
+        }
+    };
+
+    const handlePasswordChange = async (e) => {
+        e.preventDefault();
+        setPasswordStatus('');
+        const { newPassword, confirmPassword } = passwordForm;
+        if (!newPassword || newPassword.length < 6) {
+            setPasswordStatus('Password must be at least 6 characters.');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setPasswordStatus('Passwords do not match.');
+            return;
+        }
+        try {
+            await updatePassword(user, newPassword);
+            setPasswordStatus('Password updated successfully.');
+            setPasswordForm({ newPassword: '', confirmPassword: '' });
+        } catch (err) {
+            console.error(err);
+            setPasswordStatus(err.message || 'Failed to update password.');
         }
     };
 
@@ -53,96 +78,119 @@ export default function Profile() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500 pb-20">
-            {/* Profile Header */}
-            <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-10 flex flex-col lg:flex-row gap-12 items-center lg:items-start relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/30 rounded-full -mr-32 -mt-32 blur-3xl transition-all duration-1000 group-hover:bg-blue-100/30"></div>
-
-                <div className="flex flex-col sm:flex-row items-center gap-10 text-center sm:text-left z-10 w-full lg:w-auto">
-                    <div className="space-y-3">
-                        <h2 className="text-4xl font-black text-gray-900 tracking-tight">{userName}</h2>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-blue-600 font-bold text-sm bg-blue-50 px-3 py-1 rounded-full uppercase tracking-wider">
-                                {userRole === 'SUPER_ADMIN' ? 'Owner | Super Admin' : userRole?.replace('_', ' ')}
+        <div className="max-w-6xl mx-auto space-y-8 pb-20">
+            {/* Hero banner */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-800 text-white shadow-xl">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_20%_20%,white,transparent_35%),radial-gradient(circle_at_80%_0%,white,transparent_30%)]" />
+                <div className="relative p-10 flex flex-col lg:flex-row gap-10 lg:items-center">
+                    <div className="flex-1 space-y-4">
+                        <div className="inline-flex items-center gap-2 bg-white/10 border border-white/10 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-[0.12em]">
+                            <Shield size={14} /> Profile Overview
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="text-4xl font-black leading-tight drop-shadow-sm">{userName}</h1>
+                            <span className="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-white/15 border border-white/20">
+                                {userRole === 'SUPER_ADMIN' ? 'Super Admin' : (userRole || 'User')}
                             </span>
-                            <span className="text-gray-400 font-medium text-sm">| {userDept || 'General Department'}</span>
+                            <span className="px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-400/20 text-emerald-50 border border-emerald-200/40 flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" /> Active
+                            </span>
                         </div>
-                        <div className="flex items-center gap-2 pt-2">
-                            <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2.5 py-1 rounded-lg text-xs font-bold">
-                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div> Active
-                            </div>
-                            <p className="text-xs text-gray-400 font-medium tracking-tight">Status: Active Employee</p>
+                        <div className="flex flex-wrap gap-4 text-sm text-slate-100/90">
+                            <span className="inline-flex items-center gap-2"><Building2 size={16} /> {userCompany || 'Company not set'}</span>
+                            <span className="inline-flex items-center gap-2"><Briefcase size={16} /> {userDept || 'Department not set'}</span>
+                            <span className="inline-flex items-center gap-2"><Mail size={16} /> {user?.email}</span>
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 min-w-[240px]">
+                        <StatPill label="Staff ID" value={user?.uid?.slice(0, 8) || '—'} icon={Hash} />
+                        <StatPill label="Phone" value={userData?.phone || 'Not set'} icon={Phone} />
+                        <StatPill label="Role" value={userRole || '—'} icon={Shield} />
+                        <StatPill label="Company" value={userCompany || '—'} icon={Building2} />
                     </div>
                 </div>
+            </div>
 
-                {/* Right Side Key Stats */}
-                <div className="lg:ml-auto grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10 z-10 w-full lg:w-auto mt-10 lg:mt-0 pt-10 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-100 lg:pl-16">
-                    <div className="space-y-1 group">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Hash size={12} className="text-gray-300" /> Staff ID</p>
-                        <p className="text-sm font-black text-gray-700 uppercase tracking-tight">{user?.uid?.slice(0, 8)}</p>
-                    </div>
-                    <div className="space-y-1 group">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Phone size={12} className="text-gray-300" /> Phone number</p>
-                        <p className="text-sm font-black text-gray-700">{userData?.phone || 'Not updated'}</p>
-                    </div>
-                    <div className="space-y-1 group">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Briefcase size={12} className="text-gray-300" /> Company</p>
-                        <p className="text-sm font-black text-gray-700 tracking-tight">{userCompany}</p>
-                    </div>
-                    <div className="space-y-1 group">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Mail size={12} className="text-gray-300" /> Email</p>
-                        <p className="text-sm font-black text-gray-700 tracking-tight break-all">{user?.email}</p>
-                    </div>
-                </div>
-            </div >
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                {/* Left: personal + addresses */}
+                <div className="lg:col-span-2 space-y-6">
+                    <Card title="Personal information" actionLabel="Edit" onAction={openEdit}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
+                            <InfoField label="Gender" value={userData?.gender || 'N/A'} />
+                            <InfoField label="Date of birth" value={userData?.dob || 'N/A'} />
+                            <InfoField label="Identify code" value={userData?.identifyCode || 'N/A'} />
+                            <InfoField label="Hometown" value={userData?.hometown || 'N/A'} />
+                            <InfoField label="Nationality" value={userData?.nationality || 'N/A'} />
+                            <InfoField label="Religion" value={userData?.religion || 'N/A'} />
+                            <InfoField label="Language" value={userData?.language || 'N/A'} />
+                            <InfoField label="Marital status" value={userData?.maritalStatus || 'N/A'} />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                            <InfoField label="Permanent address" value={userData?.permanentAddress || 'N/A'} />
+                            <InfoField label="Current address" value={userData?.currentAddress || 'N/A'} />
+                        </div>
+                    </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Left Column */}
-                <div className="lg:col-span-8 bg-white rounded-[32px] shadow-sm border border-gray-100 p-10 space-y-10">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-xl font-black text-gray-900 flex items-center gap-3">
-                            <div className="w-2 h-8 bg-blue-600 rounded-full"></div> Personal information
-                        </h3>
-                        <button onClick={openEdit} className="p-2.5 bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all"><Edit3 size={20} /></button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12">
-                        <InfoField label="Gender" value={userData?.gender || 'N/A'} />
-                        <InfoField label="Date of birth" value={userData?.dob || 'N/A'} />
-                        <InfoField label="Identify code" value={userData?.identifyCode || 'N/A'} />
-                        <InfoField label="Hometown" value={userData?.hometown || 'N/A'} />
-                        <InfoField label="Nationality" value={userData?.nationality || 'N/A'} />
-                        <InfoField label="Religion" value={userData?.religion || 'N/A'} />
-                        <InfoField label="Language" value={userData?.language || 'N/A'} />
-                        <InfoField label="Marital status" value={userData?.maritalStatus || 'N/A'} />
-                        <div className="md:col-span-2"><InfoField label="Permanent address" value={userData?.permanentAddress || 'N/A'} /></div>
-                        <div className="md:col-span-2"><InfoField label="Current address" value={userData?.currentAddress || 'N/A'} /></div>
-                    </div>
+                    <Card title="Financial & account" actionLabel="Edit" onAction={openEdit}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <InfoField label="Bank name" value={userData?.bankName || 'N/A'} />
+                            <InfoField label="Bank account" value={userData?.bankAccount || 'N/A'} />
+                            <InfoField label="Account holder" value={userData?.bankAccountName || 'N/A'} />
+                            <InfoField label="Tax code" value={userData?.taxCode || 'N/A'} />
+                            <InfoField label="Insurance code" value={userData?.insuranceCode || 'N/A'} />
+                        </div>
+                    </Card>
                 </div>
 
-                {/* Right Column */}
-                <div className="lg:col-span-4 space-y-8">
-                    {/* Account Information */}
-                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-10 space-y-8">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-xl font-black text-gray-900 tracking-tight">Account information</h3>
-                            <button onClick={openEdit} className="text-gray-300 hover:text-blue-600 transition-colors"><Edit3 size={18} /></button>
+                {/* Right column */}
+                <div className="space-y-6">
+                    <Card title="Account information" actionLabel="Edit" onAction={openEdit}>
+                        <div className="space-y-4">
+                            <InfoField label="Email" value={user?.email || 'N/A'} />
+                            <InfoField label="Phone" value={userData?.phone || 'Not set'} />
+                            <InfoField label="Company" value={userCompany || 'Not set'} />
+                            <InfoField label="Department" value={userDept || 'Not set'} />
                         </div>
+                    </Card>
 
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                                <InfoField label="Bank account" value={userData?.bankAccount || 'N/A'} size="xs" />
-                                <InfoField label="Bank" value={userData?.bankName || 'N/A'} size="xs" />
+                    <Card title="Change password">
+                        <form className="space-y-4" onSubmit={handlePasswordChange}>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">New password</label>
+                                <input
+                                    type="password"
+                                    value={passwordForm.newPassword}
+                                    onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                                    placeholder="••••••••"
+                                    required
+                                />
                             </div>
-                            <InfoField label="Account name" value={userData?.bankAccountName || 'N/A'} size="xs" />
-                            <div className="grid grid-cols-2 gap-6">
-                                <InfoField label="Tax code" value={userData?.taxCode || 'N/A'} size="xs" />
-                                <InfoField label="Insurance code" value={userData?.insuranceCode || 'N/A'} size="xs" />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Confirm password</label>
+                                <input
+                                    type="password"
+                                    value={passwordForm.confirmPassword}
+                                    onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                                    placeholder="••••••••"
+                                    required
+                                />
                             </div>
-                        </div>
-                    </div>
-
+                            {passwordStatus && (
+                                <div className={`text-sm font-semibold ${passwordStatus.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
+                                    {passwordStatus}
+                                </div>
+                            )}
+                            <button
+                                type="submit"
+                                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200"
+                            >
+                                Update password
+                            </button>
+                        </form>
+                    </Card>
                 </div>
             </div>
 
@@ -207,6 +255,37 @@ function InfoField({ label, value, size = "sm" }) {
         <div className="space-y-1.5 group">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
             <p className={`font-bold text-gray-900 group-hover:text-blue-600 transition-colors leading-tight ${size === 'xs' ? 'text-xs' : 'text-sm'}`}>{value}</p>
+        </div>
+    );
+}
+
+function StatPill({ label, value, icon: Icon }) {
+    return (
+        <div className="rounded-2xl bg-white/10 border border-white/20 px-4 py-3 text-white/90 shadow-sm">
+            <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-white/60 flex items-center gap-1">{label}</p>
+            <div className="flex items-center gap-2 mt-1 font-bold text-sm">
+                {Icon && <Icon size={16} className="text-white/70" />}
+                <span>{value}</span>
+            </div>
+        </div>
+    );
+}
+
+function Card({ title, actionLabel, onAction, children }) {
+    return (
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
+            <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-gray-900 tracking-tight">{title}</h3>
+                {actionLabel && onAction && (
+                    <button
+                        onClick={onAction}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                        {actionLabel}
+                    </button>
+                )}
+            </div>
+            {children}
         </div>
     );
 }

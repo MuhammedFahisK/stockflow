@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { setDoc, doc, collection, query, where, getDocs } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { setDoc, doc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, Mail, Lock, Building2, User, ArrowRight, Briefcase } from 'lucide-react';
+import { UserPlus, Mail, Lock, Building2, User, ArrowRight, Briefcase, AtSign } from 'lucide-react';
 import LogoMark from '../components/LogoMark';
 import { DEFAULT_DEPARTMENTS } from '../utils/permissions';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
-    fullName: '',
+    email: '',
     password: '',
   });
   const [error, setError] = useState('');
@@ -28,70 +28,109 @@ export default function Signup() {
     e.preventDefault();
     setError('');
 
-    if (!formData.fullName.trim() || !formData.password.trim()) {
-      setError('Please enter your full name and password');
+    if (!formData.email.trim() || !formData.password.trim()) {
+      setError('Please enter your email and password');
       return;
     }
 
     setLoading(true);
+    let newAuthUser = null;
 
     try {
-      // 1. Verify user exists in the system
+      // Step 1: Try signing in first (already-active accounts).
+      // Firestore queries must run AFTER authentication, so we authenticate first.
+      try {
+        await signInWithEmailAndPassword(auth, formData.email.trim(), formData.password);
+        const activeUser = auth.currentUser;
+        if (activeUser) {
+          await setDoc(doc(db, 'users', activeUser.uid), {
+            lastLoginAt: new Date(),
+          }, { merge: true });
+        }
+        navigate('/');
+        return;
+      } catch (signInErr) {
+        // These codes mean no existing account — fall through to activation flow.
+        const notFound = [
+          'auth/user-not-found',
+          'auth/wrong-password',
+          'auth/invalid-credential',
+          'auth/invalid-login-credentials',
+        ];
+        if (!notFound.includes(signInErr.code)) throw signInErr;
+      }
+
+      // Step 2: No existing Auth account — create one first so we are authenticated
+      // before touching Firestore (avoids permission-denied on unauthenticated reads).
+      try {
+        const credential = await createUserWithEmailAndPassword(
+          auth,
+          formData.email.trim(),
+          formData.password
+        );
+        newAuthUser = credential.user;
+      } catch (createErr) {
+        if (createErr.code === 'auth/email-already-in-use') {
+          setError('This email is already registered. Please use the Sign In page.');
+        } else {
+          setError(createErr.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Step 3: Now authenticated — query Firestore for the pending_signup record.
       const usersRef = collection(db, 'users');
       const q = query(
         usersRef,
-        where('fullName', '==', formData.fullName)
+        where('email', '==', formData.email.trim()),
+        where('status', '==', 'pending_signup')
       );
-
       const querySnapshot = await getDocs(q);
+
       if (querySnapshot.empty) {
-        setError('User not found. Please contact your Admin for access.');
+        // No pending record — undo the Auth account we just created.
+        await newAuthUser.delete();
+        await signOut(auth);
+        newAuthUser = null;
+        setError('No pending account found for this email. Please contact your Admin.');
         setLoading(false);
         return;
       }
 
-      // Find the user whose password matches
-      const userDoc = querySnapshot.docs.find(doc => doc.data().initialPassword === formData.password);
-
-      if (!userDoc) {
-        setError('Invalid password. Please use the password provided by your Admin.');
-        setLoading(false);
-        return;
-      }
-
+      const userDoc = querySnapshot.docs[0];
       const userData = userDoc.data();
 
-      // 3. Handle First-time Signup (Activation) vs Login
-      if (userData.status === 'pending_signup') {
-        // Create Firebase Auth account using the pre-stored email and admin password
-        const { user } = await createUserWithEmailAndPassword(
-          auth,
-          userData.email,
-          formData.password
-        );
-
-        // Link the Firestore document to the Auth UID and mark as active
-        await setDoc(doc(db, 'users', userDoc.id), {
-          ...userData,
-          uid: user.uid,
-          status: 'active',
-          lastLoginAt: new Date(),
-        });
-      } else {
-        // Already active - standard login
-        await signInWithEmailAndPassword(auth, userData.email, formData.password);
-
-        // Update last login
-        await setDoc(doc(db, 'users', userDoc.id), {
-          ...userData,
-          lastLoginAt: new Date(),
-        }, { merge: true });
+      // Step 4: Verify the initial password set by the Admin.
+      if (userData.initialPassword !== formData.password) {
+        await newAuthUser.delete();
+        await signOut(auth);
+        newAuthUser = null;
+        setError('Incorrect initial password. Please use the one provided by your Admin.');
+        setLoading(false);
+        return;
       }
+
+      // Step 5: Activate — write permanent UID-keyed doc, remove temp Admin doc.
+      await setDoc(doc(db, 'users', newAuthUser.uid), {
+        ...userData,
+        status: 'active',
+        lastLoginAt: new Date(),
+      });
+      await deleteDoc(doc(db, 'users', userDoc.id));
 
       navigate('/');
     } catch (err) {
       console.error('Auth error:', err);
-      setError(err.message);
+      // Roll back the created Auth user on unexpected failure.
+      if (newAuthUser) {
+        try { await newAuthUser.delete(); await signOut(auth); } catch (_) { }
+      }
+      if (err.code === 'permission-denied') {
+        setError('Firestore permissions not configured. Please ask your Admin to update the Firebase security rules.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -111,23 +150,23 @@ export default function Signup() {
 
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-800 bg-clip-text text-transparent mb-1">
-              Sign Up
+              Join StockFlow
             </h1>
-            <p className="text-gray-500 text-sm">Join using credentials provided by Admin</p>
+            <p className="text-gray-500 text-sm">Activate your account with Admin credentials</p>
           </div>
 
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 ml-1">Full Name</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 ml-1">Work Email</label>
               <div className="relative">
-                <User className="absolute left-3 top-3 text-gray-400" size={18} />
+                <AtSign className="absolute left-3 top-3 text-gray-400" size={18} />
                 <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
+                  type="email"
+                  name="email"
+                  value={formData.email}
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-gray-800"
-                  placeholder="John Doe"
+                  placeholder="name@company.com"
                   required
                 />
               </div>

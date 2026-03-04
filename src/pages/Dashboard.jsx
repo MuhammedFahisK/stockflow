@@ -21,10 +21,12 @@ export default function Dashboard() {
   const [verifyResult, setVerifyResult] = useState(null);
 
   useEffect(() => {
+    if (!userCompany) return;
     fetchStats();
   }, [userCompany]);
 
   const fetchStats = async () => {
+    if (!userCompany) return;
     try {
       setLoading(true);
 
@@ -194,11 +196,10 @@ export default function Dashboard() {
         </div>
         {verifyResult && verifyResult.status !== "loading" && (
           <div
-            className={`mt-4 p-4 rounded-lg ${
-              verifyResult.status === "found"
+            className={`mt-4 p-4 rounded-lg ${verifyResult.status === "found"
                 ? "bg-green-50 border border-green-200 text-green-800"
                 : "bg-red-50 border border-red-200 text-red-800"
-            }`}
+              }`}
           >
             {verifyResult.status === "found" ? (
               <div>
