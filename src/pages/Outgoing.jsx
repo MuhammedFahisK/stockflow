@@ -12,7 +12,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { Plus, X, Download, Eye, Printer, Pencil } from 'lucide-react';
+import { Plus, X, Download, Eye, Printer, Pencil, Truck } from 'lucide-react';
 import { exportToExcel } from '../utils/excelExport';
 import { printOutgoingDetail } from '../utils/printDetail';
 import { PERMISSIONS, hasPermission, DEFAULT_UNITS } from '../utils/permissions';
@@ -29,6 +29,7 @@ export default function Outgoing() {
   const [companyUsers, setCompanyUsers] = useState([]);
   const [recipients, setRecipients] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [activeTab, setActiveTab] = useState('dispatched');
 
   const [formData, setFormData] = useState({
     invoiceNo: '',
@@ -106,6 +107,7 @@ export default function Outgoing() {
   const canCreate = hasPermission(userRole, PERMISSIONS.OUTGOING_CREATE);
   const canDelete = hasPermission(userRole, PERMISSIONS.OUTGOING_DELETE);
   const canEdit = userRole === 'SUPER_ADMIN' || userDept === 'Accountant';
+  const canMarkDelivered = userRole === 'SUPER_ADMIN' || userDept === 'Driver' || userDept === 'Accountant';
 
   useEffect(() => {
     if (userCompany) {
@@ -350,6 +352,21 @@ export default function Outgoing() {
     }
   };
 
+  const handleMarkDelivered = async (ship) => {
+    if (!window.confirm(`Mark "${ship.invoiceNo}" as Delivered?`)) return;
+    try {
+      await updateDoc(doc(db, 'outgoingStock', ship.id), {
+        status: 'delivered',
+        deliveredBy: userName || user?.email || 'User',
+        deliveredAt: Timestamp.now(),
+      });
+      fetchShipments();
+    } catch (error) {
+      console.error('Error marking delivered:', error);
+      alert('Error updating status. Please try again.');
+    }
+  };
+
   const handleExport = () => {
     if (shipments.length === 0) {
       alert('No shipments to export');
@@ -399,8 +416,39 @@ export default function Outgoing() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('dispatched')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'dispatched'
+              ? 'bg-orange-600 text-white shadow'
+              : 'text-gray-500 hover:text-gray-700'
+            }`}
+        >
+          🚚 Dispatched
+          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === 'dispatched' ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-600'
+            }`}>
+            {shipments.filter(s => s.status === 'dispatched' || !s.status).length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('delivered')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'delivered'
+              ? 'bg-green-600 text-white shadow'
+              : 'text-gray-500 hover:text-gray-700'
+            }`}
+        >
+          ✅ Delivered
+          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === 'delivered' ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+            }`}>
+            {shipments.filter(s => s.status === 'delivered').length}
+          </span>
+        </button>
+      </div>
+
       {/* Shipments Table */}
-      <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden border border-gray-200">
+      <div className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden border ${activeTab === 'delivered' ? 'border-green-200' : 'border-gray-200'
+        }`}>
         {loading ? (
           <div className="p-12 text-center">
             <div className="inline-block">
@@ -408,77 +456,95 @@ export default function Outgoing() {
             </div>
             <p className="text-gray-500 mt-4">Loading shipments...</p>
           </div>
-        ) : shipments.length === 0 ? (
+        ) : shipments.filter(s => activeTab === 'delivered' ? s.status === 'delivered' : (s.status === 'dispatched' || !s.status)).length === 0 ? (
           <div className="p-12 text-center">
-            <div className="text-5xl mb-4">📤</div>
-            <p className="text-gray-500 text-lg">No shipments recorded yet</p>
-            <p className="text-gray-400 text-sm mt-2">Create your first shipment to get started</p>
+            <div className="text-5xl mb-4">{activeTab === 'delivered' ? '✅' : '📤'}</div>
+            <p className="text-gray-500 text-lg">
+              {activeTab === 'delivered' ? 'No delivered shipments yet' : 'No shipments dispatched yet'}
+            </p>
+            <p className="text-gray-400 text-sm mt-2">
+              {activeTab === 'delivered' ? 'Delivered invoices will appear here' : 'Create your first shipment to get started'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-orange-50 to-orange-100 border-b-2 border-orange-200">
+              <thead className={`border-b-2 ${activeTab === 'delivered'
+                  ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-200'
+                  : 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200'
+                }`}>
                 <tr>
-                  <th className="px-6 py-4 text-left font-bold text-orange-900">Delivery Note No</th>
-                  <th className="px-6 py-4 text-left font-bold text-orange-900">E-Way Bill</th>
-                  <th className="px-6 py-4 text-left font-bold text-orange-900">Recipient</th>
-                  <th className="px-6 py-4 text-left font-bold text-orange-900">Items</th>
-                  <th className="px-6 py-4 text-left font-bold text-orange-900">Total Qty</th>
-                  <th className="px-6 py-4 text-left font-bold text-orange-900">Vehicle</th>
-                  <th className="px-6 py-4 text-left font-bold text-orange-900">Date</th>
-                  <th className="px-6 py-4 text-center font-bold text-orange-900">Actions</th>
+                  <th className={`px-6 py-4 text-left font-bold ${activeTab === 'delivered' ? 'text-green-900' : 'text-orange-900'}`}>Delivery Note No</th>
+                  <th className={`px-6 py-4 text-left font-bold ${activeTab === 'delivered' ? 'text-green-900' : 'text-orange-900'}`}>Recipient</th>
+                  <th className={`px-6 py-4 text-left font-bold ${activeTab === 'delivered' ? 'text-green-900' : 'text-orange-900'}`}>Items</th>
+                  <th className={`px-6 py-4 text-left font-bold ${activeTab === 'delivered' ? 'text-green-900' : 'text-orange-900'}`}>Total Qty</th>
+                  <th className={`px-6 py-4 text-left font-bold ${activeTab === 'delivered' ? 'text-green-900' : 'text-orange-900'}`}>Vehicle</th>
+                  <th className={`px-6 py-4 text-left font-bold ${activeTab === 'delivered' ? 'text-green-900' : 'text-orange-900'}`}>{activeTab === 'delivered' ? 'Delivered On' : 'Dispatched On'}</th>
+                  <th className={`px-6 py-4 text-center font-bold ${activeTab === 'delivered' ? 'text-green-900' : 'text-orange-900'}`}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {shipments.map((ship) => (
-                  <tr key={ship.id} className="hover:bg-orange-50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-orange-600">{ship.invoiceNo}</td>
-                    <td className="px-6 py-4 text-gray-600">{ship.ewayBillNo || '-'}</td>
-                    <td className="px-6 py-4 text-gray-900 font-medium">{ship.recipientName}</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold">
-                        {ship.items?.length || 0} items
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-bold text-orange-600">
-                      {ship.items?.reduce((sum, item) => sum + parseInt(item.qtyDispatched || 0), 0) || 0} units
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{ship.vehicleNo || '-'}</td>
-                    <td className="px-6 py-4 text-xs text-gray-500">
-                      {ship.createdAt?.toDate?.()?.toLocaleDateString() || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-center space-x-3">
-                      <button
-                        onClick={() => {
-                          setSelectedShipment(ship);
-                          setShowDetailModal(true);
-                        }}
-                        className="text-orange-600 hover:text-orange-800 hover:bg-orange-100 p-2 rounded-lg transition inline-block"
-                        title="View Details"
-                      >
-                        <Eye size={18} />
-                      </button>
-                      {canEdit && (
+                {shipments
+                  .filter(s => activeTab === 'delivered' ? s.status === 'delivered' : (s.status === 'dispatched' || !s.status))
+                  .map((ship) => (
+                    <tr key={ship.id} className={`transition-colors ${activeTab === 'delivered' ? 'hover:bg-green-50' : 'hover:bg-orange-50'}`}>
+                      <td className={`px-6 py-4 font-semibold ${activeTab === 'delivered' ? 'text-green-700' : 'text-orange-600'}`}>{ship.invoiceNo}</td>
+                      <td className="px-6 py-4 text-gray-900 font-medium">{ship.recipientName}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${activeTab === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {ship.items?.length || 0} items
+                        </span>
+                      </td>
+                      <td className={`px-6 py-4 font-bold ${activeTab === 'delivered' ? 'text-green-700' : 'text-orange-600'}`}>
+                        {ship.items?.reduce((sum, item) => sum + parseInt(item.qtyDispatched || 0), 0) || 0} units
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{ship.vehicleNo || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-gray-500">
+                        {activeTab === 'delivered'
+                          ? ship.deliveredAt?.toDate?.()?.toLocaleDateString() || '-'
+                          : ship.createdAt?.toDate?.()?.toLocaleDateString() || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-center space-x-2">
                         <button
-                          onClick={() => handleEdit(ship)}
-                          className="text-green-600 hover:text-green-800 hover:bg-green-100 p-2 rounded-lg transition inline-block"
-                          title="Edit"
+                          onClick={() => {
+                            setSelectedShipment(ship);
+                            setShowDetailModal(true);
+                          }}
+                          className="text-orange-600 hover:text-orange-800 hover:bg-orange-100 p-2 rounded-lg transition inline-block"
+                          title="View Details"
                         >
-                          <Pencil size={18} />
+                          <Eye size={18} />
                         </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDelete(ship.id)}
-                          className="text-red-600 hover:text-red-800 hover:bg-red-100 p-2 rounded-lg transition inline-block"
-                          title="Delete"
-                        >
-                          <X size={18} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEdit(ship)}
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 p-2 rounded-lg transition inline-block"
+                            title="Edit"
+                          >
+                            <Pencil size={18} />
+                          </button>
+                        )}
+                        {activeTab === 'dispatched' && canMarkDelivered && (
+                          <button
+                            onClick={() => handleMarkDelivered(ship)}
+                            className="text-green-600 hover:text-green-800 hover:bg-green-100 p-2 rounded-lg transition inline-block"
+                            title="Mark as Delivered"
+                          >
+                            <Truck size={18} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(ship.id)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-100 p-2 rounded-lg transition inline-block"
+                            title="Delete"
+                          >
+                            <X size={18} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -1052,7 +1118,15 @@ export default function Outgoing() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl my-8">
             <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Delivery Note Details (confirms goods delivered) - {selectedShipment.invoiceNo}</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-bold">Delivery Note Details - {selectedShipment.invoiceNo}</h3>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedShipment.status === 'delivered'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-orange-100 text-orange-700'
+                  }`}>
+                  {selectedShipment.status === 'delivered' ? '✅ Delivered' : '🚚 Dispatched'}
+                </span>
+              </div>
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -1079,6 +1153,21 @@ export default function Outgoing() {
                   <p className="text-gray-600 text-sm">Vehicle No</p>
                   <p className="font-semibold">{selectedShipment.vehicleNo || 'N/A'}</p>
                 </div>
+                <div>
+                  <p className="text-gray-600 text-sm">Dispatched On</p>
+                  <p className="font-semibold">{selectedShipment.createdAt?.toDate?.()?.toLocaleDateString() || '-'}</p>
+                </div>
+                {selectedShipment.status === 'delivered' && (
+                  <div>
+                    <p className="text-gray-600 text-sm">Delivered On</p>
+                    <p className="font-semibold text-green-700">
+                      {selectedShipment.deliveredAt?.toDate?.()?.toLocaleString() || '-'}
+                    </p>
+                    {selectedShipment.deliveredBy && (
+                      <p className="text-xs text-gray-500 mt-0.5">by {selectedShipment.deliveredBy}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {selectedShipment.recipientAddress && (

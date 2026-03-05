@@ -84,7 +84,13 @@ service cloud.firestore {
     match /outgoingStock/{docId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && request.resource.data.company == callerCompany()));
-      allow update, delete: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && resource.data.company == callerCompany()));
+      // Drivers can update to mark delivery; company-scoped users can update normally.
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (callerCompany() != null && resource.data.company == callerCompany()) ||
+        (hasCallerDoc() && callerData().department == 'Driver')
+      );
+      allow delete: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && resource.data.company == callerCompany()));
     }
 
     match /returns/{docId} {

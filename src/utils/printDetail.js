@@ -113,9 +113,11 @@ h1{font-size:20px;}
 <h1>Delivery Note (Confirms goods delivered)</h1>
 <div class="meta"><strong>Delivery Note No:</strong> ${ship.invoiceNo} | <strong>Recipient:</strong> ${ship.recipientName || ''}</div>
 <div class="meta"><strong>E-Way Bill:</strong> ${ship.ewayBillNo || 'N/A'} | <strong>Vehicle:</strong> ${ship.vehicleNo || 'N/A'}</div>
+<div class="meta"><strong>Status:</strong> <span style="font-weight:bold;color:${ship.status === 'delivered' ? 'green' : 'orange'}">${ship.status === 'delivered' ? '✅ DELIVERED' : '🚚 DISPATCHED'}</span></div>
 <div class="meta"><strong>Print Date:</strong> ${new Date().toLocaleString()}</div>
 ${ship.dispatchDate ? `<div class="meta"><strong>Dispatch Date:</strong> ${ship.dispatchDate}</div>` : ''}
 ${ship.createdBy ? `<div class="meta"><strong>Recorded by:</strong> ${ship.createdBy}</div>` : ''}
+${ship.deliveredAt ? `<div class="meta"><strong>Delivered On:</strong> ${ship.deliveredAt.toDate ? ship.deliveredAt.toDate().toLocaleString() : ship.deliveredAt}${ship.deliveredBy ? ` &nbsp;|&nbsp; <strong>Delivered By:</strong> ${ship.deliveredBy}` : ''}</div>` : ''}
 <table><thead><tr><th>Product</th><th>Barcode</th><th>Batch</th><th>Exp Date</th><th>Qty Dispatched</th><th>Location</th></tr></thead><tbody>${rows}</tbody></table>
 ${ship.checklist ? `
 <div class="section">
