@@ -1012,7 +1012,7 @@ export default function Incoming() {
                             className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
                           >
                             <option value="">Select Supervisor</option>
-                            {companyUsers.map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                            {companyUsers.filter(u => u.department === 'Supervisor').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
                         </div>
                         <div>
@@ -1029,7 +1029,7 @@ export default function Incoming() {
                             className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
                           >
                             <option value="">Select SC Exec</option>
-                            {companyUsers.map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                            {companyUsers.filter(u => u.department === 'Supply Chain Exec').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
                         </div>
                         <div>
@@ -1046,7 +1046,7 @@ export default function Incoming() {
                             className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
                           >
                             <option value="">Select Accounts Mgr</option>
-                            {companyUsers.map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                            {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
                         </div>
                       </div>
