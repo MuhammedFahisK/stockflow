@@ -39,29 +39,41 @@ export default function Departments() {
 
     const canManage = userRole === 'SUPER_ADMIN';
 
+    // Fetch company-scoped departments
     useEffect(() => {
         if (userCompany) {
             fetchData();
         }
     }, [userCompany]);
 
+    // Fetch users globally — not scoped by company (matches pattern in Incoming/Outgoing/Returns)
+    useEffect(() => {
+        fetchUsers();
+    }, []);
+
     const fetchData = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Custom Departments from Firestore
             const deptQ = query(collection(db, 'departments'), where('company', '==', userCompany));
             const deptSnap = await getDocs(deptQ);
             const customList = deptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             setCustomDepts(customList);
 
-            // Combine defaults with custom
             const allDepts = Array.from(new Set([...DEFAULT_DEPARTMENTS, ...customList.map(d => d.name)]));
             setDepartments(allDepts);
+        } catch (error) {
+            console.error('Error fetching department data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-            // 2. Fetch Users to group by department
-            const userQ = query(collection(db, 'users'), where('company', '==', userCompany));
-            const userSnap = await getDocs(userQ);
-            const employees = userSnap.docs.map(u => ({ id: u.id, ...u.data() }));
+    const fetchUsers = async () => {
+        try {
+            const userSnap = await getDocs(collection(db, 'users'));
+            const employees = userSnap.docs
+                .map(u => ({ id: u.id, ...u.data() }))
+                .filter(u => u.fullName && (u.status === 'active' || u.status === 'pending_signup'));
 
             const grouped = employees.reduce((acc, emp) => {
                 const dept = emp.department || 'Unassigned';
@@ -72,9 +84,7 @@ export default function Departments() {
 
             setEmployeesByDept(grouped);
         } catch (error) {
-            console.error('Error fetching department data:', error);
-        } finally {
-            setLoading(false);
+            console.error('Error fetching users:', error);
         }
     };
 

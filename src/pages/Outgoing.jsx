@@ -52,6 +52,7 @@ export default function Outgoing() {
     accountsSignature: '',
     supplyChainExecSignature: '',
     accountsManagerSignature: '',
+    driverSignature: '',
     vehicleNo: '',
     notes: '',
     checklist: {
@@ -97,6 +98,7 @@ export default function Outgoing() {
         accountantName: '',
         supplyChainExecName: '',
         accountsManagerName: '',
+        driverName: '',
       }
     }
   });
@@ -109,10 +111,14 @@ export default function Outgoing() {
     if (userCompany) {
       fetchProducts();
       fetchShipments();
-      fetchCompanyUsers();
       fetchRecipients();
     }
   }, [userCompany]);
+
+  // Users are global (no company filter) — fetch on mount regardless of userCompany
+  useEffect(() => {
+    fetchCompanyUsers();
+  }, []);
 
   const fetchRecipients = async () => {
     try {
@@ -128,8 +134,8 @@ export default function Outgoing() {
     try {
       const res = await getDocs(collection(db, 'users'));
       const users = res.docs
-        .map(d => d.data())
-        .filter(u => u.fullName && u.department && u.department !== 'SUPER_ADMIN');
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(u => u.fullName && u.department && u.department !== 'SUPER_ADMIN' && (u.status === 'active' || u.status === 'pending_signup'));
       setCompanyUsers(users);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -295,85 +301,39 @@ export default function Outgoing() {
 
       fetchShipments();
       setShowModal(false);
-      setFormData({
-        invoiceNo: '',
-        ewayBillNo: '',
-        recipientName: '',
-        recipientAddress: '',
-        dispatchDate: new Date().toISOString().split('T')[0],
-        items: [
-          {
-            productName: '',
-            barcode: '',
-            batchNo: '',
-            mfgDate: '',
-            expDate: '',
-            unit: 'Pcs',
-            qtyDispatched: '',
-            warehouseLocation: '',
-          },
-        ],
-        supervisorSignature: '',
-        accountsSignature: '',
-        supplyChainExecSignature: '',
-        accountsManagerSignature: '',
-        vehicleNo: '',
-        notes: '',
-        checklist: {
-          invoiceChecklist: {
-            invoiceNoVerified: false,
-            ewayBillVerified: false,
-          },
-          productDetails: {
-            totalQtyVerified: false,
-            batchExpVerified: false,
-          },
-          driverDetails: {
-            driverNamePhoneVerified: false,
-            vehicleNoVerified: false,
-          },
-          docsToDriver: {
-            originalInvoice: false,
-            eWayBillCopy: false,
-            deliveryChallan: false,
-            gatePass: false,
-          },
-          finalConfirmation: {
-            qtyRecountMatches: false,
-            docsAttached: false,
-            driverBriefed: false,
-            tripSheetGiven: false,
-          },
-          driverChecklist: {
-            tripSheet: false,
-            license: false,
-            insurance: false,
-            fitness: false,
-            pollution: false,
-            fastag: false,
-            permit: false,
-            vehicleCondition: false,
-            poVerified: false,
-            sealsFixed: false,
-            supervisorSigned: false,
-          },
-          certifications: {
-            supervisorName: '',
-            accountantName: '',
-            supplyChainExecName: '',
-            accountsManagerName: '',
-          }
-        }
-      });
+      setFormData(getBlankForm());
     } catch (error) {
       console.error('Error saving shipment:', error);
       alert('Error saving shipment. Please try again.');
     }
   };
 
+  const getBlankForm = () => ({
+    invoiceNo: '', ewayBillNo: '', recipientName: '', recipientAddress: '',
+    dispatchDate: new Date().toISOString().split('T')[0],
+    items: [{ productName: '', barcode: '', batchNo: '', mfgDate: '', expDate: '', unit: 'Pcs', qtyDispatched: '', warehouseLocation: '' }],
+    supervisorSignature: '', accountsSignature: '', supplyChainExecSignature: '', accountsManagerSignature: '', driverSignature: '',
+    vehicleNo: '', notes: '',
+    checklist: {
+      invoiceChecklist: { invoiceNoVerified: false, ewayBillVerified: false },
+      productDetails: { totalQtyVerified: false, batchExpVerified: false },
+      driverDetails: { driverNamePhoneVerified: false, vehicleNoVerified: false },
+      docsToDriver: { originalInvoice: false, eWayBillCopy: false, deliveryChallan: false, gatePass: false },
+      finalConfirmation: { qtyRecountMatches: false, docsAttached: false, driverBriefed: false, tripSheetGiven: false },
+      driverChecklist: { tripSheet: false, license: false, insurance: false, fitness: false, pollution: false, fastag: false, permit: false, vehicleCondition: false, poVerified: false, sealsFixed: false, supervisorSigned: false },
+      certifications: { supervisorName: '', accountantName: '', supplyChainExecName: '', accountsManagerName: '', driverName: '' },
+    },
+  });
+
+  const openNewRecord = () => {
+    setEditingId(null);
+    setFormData(getBlankForm());
+    setShowModal(true);
+  };
+
   const handleEdit = (record) => {
-    const { id: _id, createdAt, createdBy, company, status, ...fields } = record;
-    setFormData(prev => ({ ...prev, ...fields }));
+    const { id: _id, createdAt, createdBy, company, status, updatedAt, updatedBy, ...fields } = record;
+    setFormData({ ...getBlankForm(), ...fields });
     setEditingId(record.id);
     setShowModal(true);
   };
@@ -422,7 +382,7 @@ export default function Outgoing() {
         <div className="flex gap-2">
           {canCreate && (
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openNewRecord}
               className="bg-gradient-to-r from-orange-600 to-orange-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 hover:shadow-lg transform hover:scale-105 transition-all font-medium"
             >
               <Plus size={18} />
@@ -955,7 +915,7 @@ export default function Outgoing() {
                     {/* Department Certifications */}
                     <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
                       <h5 className="font-bold text-purple-900 mb-4 text-sm uppercase tracking-wider">Departmental Verifications</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                         {/* Supervisor */}
                         <div className="space-y-2">
                           <label className="block text-xs font-bold text-purple-700 mb-1">Supervisor</label>
@@ -1028,6 +988,24 @@ export default function Outgoing() {
                             onChange={(dataUrl) => setFormData({ ...formData, accountsManagerSignature: dataUrl || '' })}
                           />
                         </div>
+                        {/* Driver */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-purple-700 mb-1">Driver</label>
+                          <select
+                            value={formData.checklist.certifications.driverName}
+                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, driverName: e.target.value } } })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Select Driver</option>
+                            {companyUsers.filter(u => u.department === 'Driver').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                          </select>
+                          <SignaturePad
+                            label="Driver Signature"
+                            placeholder="Sign here"
+                            value={formData.driverSignature}
+                            onChange={(dataUrl) => setFormData({ ...formData, driverSignature: dataUrl || '' })}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1083,7 +1061,7 @@ export default function Outgoing() {
               </button>
             </div>
 
-            <div className="p-6 max-h-96 overflow-y-auto">
+            <div className="p-6 max-h-[72vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b">
                 <div>
                   <p className="text-gray-600 text-sm">Delivery Note No</p>
@@ -1198,7 +1176,7 @@ export default function Outgoing() {
 
                   <div className="mt-4 bg-purple-50 p-4 rounded-lg">
                     <p className="font-bold text-xs uppercase text-purple-600 mb-2">Departmental Verifications</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-4">
                       <div>
                         <p className="text-[10px] text-purple-400 uppercase font-bold">Supervisor</p>
                         <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.supervisorName || '-'}</p>
@@ -1225,6 +1203,13 @@ export default function Outgoing() {
                         <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.accountsManagerName || '-'}</p>
                         {selectedShipment.accountsManagerSignature && (
                           <img src={selectedShipment.accountsManagerSignature} alt="Accounts Manager Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Driver</p>
+                        <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.driverName || '-'}</p>
+                        {selectedShipment.driverSignature && (
+                          <img src={selectedShipment.driverSignature} alt="Driver Signature" className="mt-1 max-h-12 border rounded bg-white" />
                         )}
                       </div>
                     </div>

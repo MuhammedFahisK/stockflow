@@ -134,6 +134,7 @@ ${ship.checklist ? `
     <div>Accountant: ${ship.checklist.certifications.accountantName || 'N/A'}</div>
     <div>Supply Chain: ${ship.checklist.certifications.supplyChainExecName || 'N/A'}</div>
     <div>Accounts Manager: ${ship.checklist.certifications.accountsManagerName || 'N/A'}</div>
+    <div>Driver: ${ship.checklist.certifications.driverName || 'N/A'}</div>
   </div>
 </div>
 ` : ''}
@@ -161,6 +162,12 @@ ${ship.notes ? `<div class="section"><strong>Notes:</strong> ${ship.notes}</div>
     <div class="sign-label">Accounts Manager Signature</div>
     ${ship.accountsManagerSignature
       ? `<img class="sign-img" src="${ship.accountsManagerSignature}" alt="Accounts Manager Signature" />`
+      : '<div class="sign-line"></div>'}
+  </div>
+  <div class="sign-box">
+    <div class="sign-label">Driver Signature</div>
+    ${ship.driverSignature
+      ? `<img class="sign-img" src="${ship.driverSignature}" alt="Driver Signature" />`
       : '<div class="sign-line"></div>'}
   </div>
 </div>
@@ -222,6 +229,7 @@ ${ret.checklist ? `
     <div>Acc. Dept: ${ret.checklist.certifications.accDeptName || 'N/A'}</div>
     <div>Supply Chain: ${ret.checklist.certifications.supplyChainExecName || 'N/A'}</div>
     <div>Accounts Mgr: ${ret.checklist.certifications.accountsManagerName || 'N/A'}</div>
+    <div>Driver: ${ret.checklist.certifications.driverName || 'N/A'}</div>
   </div>
 </div>
 ` : ''}
@@ -249,6 +257,12 @@ ${ret.notes ? `<div class="section"><strong>Notes:</strong> ${ret.notes}</div>` 
     <div class="sign-label">Accounts Manager Signature</div>
     ${ret.accountsManagerSignature
       ? `<img class="sign-img" src="${ret.accountsManagerSignature}" alt="Accounts Manager Signature" />`
+      : '<div class="sign-line"></div>'}
+  </div>
+  <div class="sign-box">
+    <div class="sign-label">Driver Signature</div>
+    ${ret.driverSignature
+      ? `<img class="sign-img" src="${ret.driverSignature}" alt="Driver Signature" />`
       : '<div class="sign-line"></div>'}
   </div>
 </div>

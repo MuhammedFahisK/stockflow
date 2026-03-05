@@ -12,7 +12,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { Plus, X, Download, Eye, Printer, Briefcase, Pencil } from 'lucide-react';
+import { Plus, X, Download, Eye, Printer, Pencil } from 'lucide-react';
 import { exportToExcel } from '../utils/excelExport';
 import { printGRNDetail } from '../utils/printDetail';
 import { PERMISSIONS, hasPermission, DEFAULT_UNITS } from '../utils/permissions';
@@ -96,10 +96,14 @@ export default function Incoming() {
     if (userCompany) {
       fetchProducts();
       fetchInvoices();
-      fetchCompanyUsers();
       fetchVendors();
     }
   }, [userCompany]);
+
+  // Users are global (no company filter) — fetch on mount regardless of userCompany
+  useEffect(() => {
+    fetchCompanyUsers();
+  }, []);
 
   const fetchVendors = async () => {
     try {
@@ -115,8 +119,8 @@ export default function Incoming() {
     try {
       const res = await getDocs(collection(db, 'users'));
       const users = res.docs
-        .map(d => d.data())
-        .filter(u => u.fullName && u.department && u.department !== 'SUPER_ADMIN');
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(u => u.fullName && u.department && u.department !== 'SUPER_ADMIN' && (u.status === 'active' || u.status === 'pending_signup'));
       setCompanyUsers(users);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -286,72 +290,36 @@ export default function Incoming() {
 
       fetchInvoices();
       setShowModal(false);
-      setFormData({
-        invoiceNo: '',
-        ewayBillNo: '',
-        vendorSupplier: '',
-        receivedDate: new Date().toISOString().split('T')[0],
-        items: [
-          {
-            productName: '',
-            barcode: '',
-            batchNo: '',
-            mfgDate: '',
-            expDate: '',
-            unit: 'Pcs',
-            qtyReceived: '',
-            rejectedQty: '',
-            discrepancy: false,
-            discrepancyReason: '',
-            warehouseLocation: '',
-            verified: false,
-          },
-        ],
-        supervisorSignature: '',
-        accountsSignature: '',
-        supplyChainExecSignature: '',
-        accountsManagerSignature: '',
-        notes: '',
-        checklist: {
-          invoiceChecklist: {
-            invoiceNoVerified: false,
-            ewayBillVerified: false,
-          },
-          acceptanceDecision: {
-            grnNo: '',
-            qtyAccepted: '',
-            cartonUnits: '',
-            partialQty: '',
-            rejectedQty: '',
-          },
-          docsToAccounts: {
-            originalInvoice: false,
-            grnSigned: false,
-          },
-          finalConfirmation: {
-            qtyRecountMatches: false,
-            rtvConfirmed: false,
-            rtvInvoice: false,
-            ewayBill: false,
-            docsHandedOver: false,
-          },
-          certifications: {
-            supervisorName: '',
-            accDeptName: '',
-            supplyChainExecName: '',
-            accountsManagerName: '',
-          }
-        }
-      });
+      setFormData(getBlankForm());
     } catch (error) {
       console.error('Error saving invoice:', error);
       alert('Error saving invoice. Please try again.');
     }
   };
 
+  const getBlankForm = () => ({
+    invoiceNo: '', ewayBillNo: '', vendorSupplier: '',
+    receivedDate: new Date().toISOString().split('T')[0],
+    items: [{ productName: '', barcode: '', batchNo: '', mfgDate: '', expDate: '', unit: 'Pcs', qtyReceived: '', rejectedQty: '', discrepancy: false, discrepancyReason: '', warehouseLocation: '', verified: false }],
+    supervisorSignature: '', accountsSignature: '', supplyChainExecSignature: '', accountsManagerSignature: '', notes: '',
+    checklist: {
+      invoiceChecklist: { invoiceNoVerified: false, ewayBillVerified: false },
+      acceptanceDecision: { grnNo: '', qtyAccepted: '', cartonUnits: '', partialQty: '', rejectedQty: '' },
+      docsToAccounts: { originalInvoice: false, grnSigned: false },
+      finalConfirmation: { qtyRecountMatches: false, rtvConfirmed: false, rtvInvoice: false, ewayBill: false, docsHandedOver: false },
+      certifications: { supervisorName: '', accDeptName: '', supplyChainExecName: '', accountsManagerName: '' },
+    },
+  });
+
+  const openNewRecord = () => {
+    setEditingId(null);
+    setFormData(getBlankForm());
+    setShowModal(true);
+  };
+
   const handleEdit = (record) => {
-    const { id: _id, createdAt, createdBy, company, status, ...fields } = record;
-    setFormData(prev => ({ ...prev, ...fields }));
+    const { id: _id, createdAt, createdBy, company, status, updatedAt, updatedBy, ...fields } = record;
+    setFormData({ ...getBlankForm(), ...fields });
     setEditingId(record.id);
     setShowModal(true);
   };
@@ -399,7 +367,7 @@ export default function Incoming() {
         <div className="flex gap-2">
           {canCreate && (
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openNewRecord}
               className="bg-blue-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition font-medium"
             >
               <Plus size={18} />
@@ -1162,7 +1130,7 @@ export default function Incoming() {
               </button>
             </div>
 
-            <div className="p-6 max-h-96 overflow-y-auto">
+            <div className="p-6 max-h-[72vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b">
                 <div>
                   <p className="text-gray-600 text-sm">GRN No</p>
