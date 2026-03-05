@@ -3,25 +3,24 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } f
 import { setDoc, doc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, Mail, Lock, Building2, User, ArrowRight, Briefcase, AtSign } from 'lucide-react';
-import LogoMark from '../components/LogoMark';
-import { DEFAULT_DEPARTMENTS } from '../utils/permissions';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import tghLogo from '../assets/tgh.jpg.jpeg';
+
+const COMPANY_NAME = 'Thara Global Holdings';
+const COMPANY_TAGLINE = 'THARA GLOBAL HOLDINGS';
+const COMPANY_VISION = 'Corporate Vision & Strategy';
+const COMPANY_QUOTE = 'Thara Global Holdings: Empowering Commerce, Enriching Lives.';
 
 export default function Signup() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSignup = async (e) => {
@@ -37,20 +36,15 @@ export default function Signup() {
     let newAuthUser = null;
 
     try {
-      // Step 1: Try signing in first (already-active accounts).
-      // Firestore queries must run AFTER authentication, so we authenticate first.
       try {
         await signInWithEmailAndPassword(auth, formData.email.trim(), formData.password);
         const activeUser = auth.currentUser;
         if (activeUser) {
-          await setDoc(doc(db, 'users', activeUser.uid), {
-            lastLoginAt: new Date(),
-          }, { merge: true });
+          await setDoc(doc(db, 'users', activeUser.uid), { lastLoginAt: new Date() }, { merge: true });
         }
         navigate('/');
         return;
       } catch (signInErr) {
-        // These codes mean no existing account — fall through to activation flow.
         const notFound = [
           'auth/user-not-found',
           'auth/wrong-password',
@@ -60,14 +54,8 @@ export default function Signup() {
         if (!notFound.includes(signInErr.code)) throw signInErr;
       }
 
-      // Step 2: No existing Auth account — create one first so we are authenticated
-      // before touching Firestore (avoids permission-denied on unauthenticated reads).
       try {
-        const credential = await createUserWithEmailAndPassword(
-          auth,
-          formData.email.trim(),
-          formData.password
-        );
+        const credential = await createUserWithEmailAndPassword(auth, formData.email.trim(), formData.password);
         newAuthUser = credential.user;
       } catch (createErr) {
         if (createErr.code === 'auth/email-already-in-use') {
@@ -79,17 +67,11 @@ export default function Signup() {
         return;
       }
 
-      // Step 3: Now authenticated — query Firestore for the pending_signup record.
       const usersRef = collection(db, 'users');
-      const q = query(
-        usersRef,
-        where('email', '==', formData.email.trim()),
-        where('status', '==', 'pending_signup')
-      );
+      const q = query(usersRef, where('email', '==', formData.email.trim()), where('status', '==', 'pending_signup'));
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        // No pending record — undo the Auth account we just created.
         await newAuthUser.delete();
         await signOut(auth);
         newAuthUser = null;
@@ -101,7 +83,6 @@ export default function Signup() {
       const userDoc = querySnapshot.docs[0];
       const userData = userDoc.data();
 
-      // Step 4: Verify the initial password set by the Admin.
       if (userData.initialPassword !== formData.password) {
         await newAuthUser.delete();
         await signOut(auth);
@@ -111,18 +92,11 @@ export default function Signup() {
         return;
       }
 
-      // Step 5: Activate — write permanent UID-keyed doc, remove temp Admin doc.
-      await setDoc(doc(db, 'users', newAuthUser.uid), {
-        ...userData,
-        status: 'active',
-        lastLoginAt: new Date(),
-      });
+      await setDoc(doc(db, 'users', newAuthUser.uid), { ...userData, status: 'active', lastLoginAt: new Date() });
       await deleteDoc(doc(db, 'users', userDoc.id));
-
       navigate('/');
     } catch (err) {
       console.error('Auth error:', err);
-      // Roll back the created Auth user on unexpected failure.
       if (newAuthUser) {
         try { await newAuthUser.delete(); await signOut(auth); } catch (_) { }
       }
@@ -137,87 +111,157 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+    <div className="min-h-screen flex">
+      {/* ── Left Panel ── */}
+      <div
+        className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #0f2744 0%, #1a3a6b 40%, #1e4080 70%, #162d55 100%)',
+        }}
+      >
+        {/* Grid overlay */}
+        <div className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)
+            `,
+            backgroundSize: '60px 60px',
+          }}
+        />
+        {/* Glass curtain effect */}
+        <div className="absolute top-0 left-0 w-full h-full">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute"
+              style={{
+                left: `${i * 13}%`,
+                top: 0,
+                bottom: 0,
+                width: '10%',
+                background: i % 2 === 0
+                  ? 'linear-gradient(180deg, rgba(100,160,255,0.08) 0%, rgba(50,100,200,0.05) 50%, rgba(100,160,255,0.08) 100%)'
+                  : 'linear-gradient(180deg, rgba(30,80,160,0.12) 0%, rgba(80,130,220,0.07) 50%, rgba(30,80,160,0.12) 100%)',
+              }}
+            />
+          ))}
+        </div>
+        <div className="absolute top-0 left-0 right-0 h-2/5 opacity-30"
+          style={{
+            background: 'linear-gradient(180deg, rgba(150,200,255,0.3) 0%, rgba(80,140,220,0.15) 60%, transparent 100%)',
+          }}
+        />
 
-      <div className="relative z-10 w-full max-w-md my-8">
-        <div className="bg-white bg-opacity-95 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white border-opacity-20 animate-in fade-in zoom-in duration-300">
-          <div className="flex justify-center mb-6">
-            <LogoMark className="h-16 w-16" />
+        {/* Logo watermark */}
+        <div className="relative z-10">
+          <img src={tghLogo} alt={COMPANY_NAME} className="h-12 w-auto object-contain opacity-80" />
+        </div>
+
+        {/* Quote + Company info */}
+        <div className="relative z-10">
+          <blockquote className="text-white text-2xl font-semibold leading-relaxed mb-8 max-w-md">
+            "{COMPANY_QUOTE}"
+          </blockquote>
+          <div>
+            <p className="text-white font-bold text-base">{COMPANY_NAME}</p>
+            <p className="text-blue-300 text-sm mt-0.5">{COMPANY_VISION}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Right Panel ── */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white px-8 py-12">
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-10">
+            <img
+              src={tghLogo}
+              alt={COMPANY_NAME}
+              className="h-20 w-auto object-contain mb-3"
+            />
+            <p className="text-xs font-bold tracking-[0.2em] text-slate-500 uppercase">{COMPANY_TAGLINE}</p>
           </div>
 
+          {/* Heading */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-800 bg-clip-text text-transparent mb-1">
-              Join StockFlow
-            </h1>
-            <p className="text-gray-500 text-sm">Activate your account with Admin credentials</p>
+            <h1 className="text-3xl font-bold text-slate-800 mb-1">Activate Account</h1>
+            <p className="text-slate-400 text-sm">Use the credentials provided by your administrator.</p>
           </div>
 
-          <form onSubmit={handleSignup} className="space-y-4">
+          {/* Form */}
+          <form onSubmit={handleSignup} className="space-y-5">
+            {/* Email */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 ml-1">Work Email</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
               <div className="relative">
-                <AtSign className="absolute left-3 top-3 text-gray-400" size={18} />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-gray-800"
-                  placeholder="name@company.com"
+                  className="w-full border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-slate-800 text-sm placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  placeholder="name@tharaglobal.com"
                   required
                 />
               </div>
             </div>
 
+            {/* Password */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 ml-1">Password</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Initial Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                  placeholder="••••••"
+                  className="w-full border border-slate-200 rounded-lg pl-10 pr-11 py-2.5 text-slate-800 text-sm placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                  placeholder="••••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
               </div>
             </div>
 
+            {/* Error */}
             {error && (
-              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-2 rounded-xl text-xs font-semibold animate-shake">
+              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-2.5 rounded-lg text-sm font-medium">
                 {error}
               </div>
             )}
 
+            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-200 transform transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 text-sm mt-1"
             >
-              {loading ? 'Processing...' : (
-                <>
-                  <UserPlus size={18} />
-                  Sign Up
-                </>
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Activate Account'
               )}
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-gray-100 text-center space-y-3">
-            <p className="text-sm text-gray-500">
+          {/* Footer */}
+          <div className="text-center mt-6 space-y-2">
+            <p className="text-sm text-slate-400">
               Already have an account?{' '}
-              <Link to="/login" className="text-blue-600 font-bold hover:text-blue-800 transition-colors">
+              <Link to="/login" className="text-blue-600 font-semibold hover:text-blue-800 transition-colors">
                 Sign In
               </Link>
             </p>
-            <p className="text-gray-400 text-xs italic">
-              Access restricted to authorized personnel only.
-            </p>
+            <p className="text-xs text-slate-300 italic">Access restricted to authorized personnel only.</p>
           </div>
         </div>
       </div>

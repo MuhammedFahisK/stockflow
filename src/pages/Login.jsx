@@ -3,12 +3,19 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogIn, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
-import LogoMark from '../components/LogoMark';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import tghLogo from '../assets/tgh.jpg.jpeg';
+
+const COMPANY_NAME = 'Thara Global Holdings';
+const COMPANY_TAGLINE = 'THARA GLOBAL HOLDINGS';
+const COMPANY_VISION = 'Corporate Vision & Strategy';
+const COMPANY_QUOTE = 'Thara Global Holdings: Empowering Commerce, Enriching Lives.';
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -22,14 +29,11 @@ export default function Login() {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Check if user exists in Firestore and has Admin permissions if needed
-            // For now, we allow any valid auth user to login here, but usually admins use this
             const userDoc = await getDoc(doc(db, 'users', user.uid));
 
             if (userDoc.exists()) {
                 navigate('/');
             } else {
-                // Handle case where auth exists but firestore doc doesn't (rare)
                 setError('User record not found in system.');
             }
         } catch (err) {
@@ -41,92 +45,170 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Premium background effects */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px]"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]"></div>
+        <div className="min-h-screen flex">
+            {/* ── Left Panel ── */}
+            <div
+                className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden"
+                style={{
+                    background: 'linear-gradient(135deg, #0f2744 0%, #1a3a6b 40%, #1e4080 70%, #162d55 100%)',
+                }}
+            >
+                {/* Architectural grid lines overlay */}
+                <div className="absolute inset-0 opacity-10"
+                    style={{
+                        backgroundImage: `
+                            linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)
+                        `,
+                        backgroundSize: '60px 60px',
+                    }}
+                />
+                {/* Glass reflection effect */}
+                <div className="absolute top-0 left-0 w-full h-full">
+                    {[...Array(8)].map((_, i) => (
+                        <div
+                            key={i}
+                            className="absolute"
+                            style={{
+                                left: `${i * 13}%`,
+                                top: 0,
+                                bottom: 0,
+                                width: '10%',
+                                background: i % 2 === 0
+                                    ? 'linear-gradient(180deg, rgba(100,160,255,0.08) 0%, rgba(50,100,200,0.05) 50%, rgba(100,160,255,0.08) 100%)'
+                                    : 'linear-gradient(180deg, rgba(30,80,160,0.12) 0%, rgba(80,130,220,0.07) 50%, rgba(30,80,160,0.12) 100%)',
+                            }}
+                        />
+                    ))}
+                </div>
+                {/* Sky reflection at top */}
+                <div className="absolute top-0 left-0 right-0 h-2/5 opacity-30"
+                    style={{
+                        background: 'linear-gradient(180deg, rgba(150,200,255,0.3) 0%, rgba(80,140,220,0.15) 60%, transparent 100%)',
+                    }}
+                />
 
-            <div className="relative z-10 w-full max-w-md">
-                <div className="bg-slate-800/50 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 border border-slate-700/50">
-                    <div className="flex justify-center mb-8">
-                        <div className="bg-blue-600 p-4 rounded-2xl shadow-lg shadow-blue-500/20">
-                            <ShieldCheck className="text-white" size={32} />
-                        </div>
+                {/* Logo watermark top-left */}
+                <div className="relative z-10">
+                    <img src={tghLogo} alt={COMPANY_NAME} className="h-12 w-auto object-contain opacity-80" />
+                </div>
+
+                {/* Quote + Company info — bottom */}
+                <div className="relative z-10">
+                    <blockquote className="text-white text-2xl font-semibold leading-relaxed mb-8 max-w-md">
+                        "{COMPANY_QUOTE}"
+                    </blockquote>
+                    <div>
+                        <p className="text-white font-bold text-base">{COMPANY_NAME}</p>
+                        <p className="text-blue-300 text-sm mt-0.5">{COMPANY_VISION}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Right Panel ── */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center bg-white px-8 py-12">
+                <div className="w-full max-w-sm">
+                    {/* Logo */}
+                    <div className="flex flex-col items-center mb-10">
+                        <img
+                            src={tghLogo}
+                            alt={COMPANY_NAME}
+                            className="h-20 w-auto object-contain mb-3"
+                        />
+                        <p className="text-xs font-bold tracking-[0.2em] text-slate-500 uppercase">{COMPANY_TAGLINE}</p>
                     </div>
 
+                    {/* Heading */}
                     <div className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-white mb-2">Admin Portal</h1>
-                        <p className="text-slate-400">Secure access for stock management system</p>
+                        <h1 className="text-3xl font-bold text-slate-800 mb-1">Welcome back</h1>
+                        <p className="text-slate-400 text-sm">Please enter your details to sign in.</p>
                     </div>
 
-                    <form onSubmit={handleLogin} className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Work Email</label>
-                            <div className="relative group">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                    {/* Form */}
+                    <form onSubmit={handleLogin} className="space-y-5">
+                        {/* Email */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
+                            <div className="relative">
+                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-slate-900/50 border border-slate-700 text-white pl-12 pr-4 py-3.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600"
-                                    placeholder=""
+                                    className="w-full border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-slate-800 text-sm placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                                    placeholder="admin@tharaglobal.com"
                                     required
                                 />
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center ml-1">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Password</label>
-                                <a href="#" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Forgot?</a>
-                            </div>
-                            <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                        {/* Password */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                            <div className="relative">
+                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-slate-900/50 border border-slate-700 text-white pl-12 pr-4 py-3.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600"
-                                    placeholder="••••••••"
+                                    className="w-full border border-slate-200 rounded-lg pl-10 pr-11 py-2.5 text-slate-800 text-sm placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
+                                    placeholder="••••••••••"
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                </button>
                             </div>
                         </div>
 
+                        {/* Remember me + Forgot */}
+                        <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={rememberMe}
+                                    onChange={(e) => setRememberMe(e.target.checked)}
+                                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
+                                <span className="text-sm text-slate-600">Remember me</span>
+                            </label>
+                            <a href="#" className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                                Forgot password?
+                            </a>
+                        </div>
+
+                        {/* Error */}
                         {error && (
-                            <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-2xl text-sm font-medium animate-pulse">
+                            <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-2.5 rounded-lg text-sm font-medium">
                                 {error}
                             </div>
                         )}
 
+                        {/* Submit */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-bold shadow-xl shadow-blue-600/20 transform transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 text-lg"
+                            className="w-full bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-lg font-semibold transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 text-sm mt-1"
                         >
                             {loading ? (
-                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
-                                <>
-                                    <LogIn size={20} />
-                                    Sign In
-                                </>
+                                'Sign In'
                             )}
                         </button>
                     </form>
 
-                    <div className="mt-8 pt-8 border-t border-slate-700/50 text-center">
-                        <p className="text-slate-500 text-sm">
-                            Not an admin?{' '}
-                            <Link to="/signup" className="text-blue-400 font-bold hover:text-blue-300 transition-colors inline-flex items-center gap-1 group">
-                                Employee Access <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                            </Link>
-                        </p>
-                    </div>
-                </div>
-
-                <div className="mt-8 text-center text-slate-600 text-xs">
-                    Built with precision by StockFlow Team &copy; 2026
+                    {/* Footer link */}
+                    <p className="text-center text-sm text-slate-400 mt-6">
+                        Don't have an account?{' '}
+                        <Link to="/signup" className="text-blue-600 font-semibold hover:text-blue-800 transition-colors">
+                            Contact Administrator
+                        </Link>
+                    </p>
                 </div>
             </div>
         </div>
