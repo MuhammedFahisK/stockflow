@@ -123,7 +123,10 @@ export default function Outgoing() {
     try {
       const q = query(collection(db, 'users'), where('company', '==', userCompany));
       const res = await getDocs(q);
-      setCompanyUsers(res.docs.map(d => d.data()));
+      const activeUsers = res.docs
+        .map(d => d.data())
+        .filter(u => u.status === 'active' && u.fullName);
+      setCompanyUsers(activeUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
     }

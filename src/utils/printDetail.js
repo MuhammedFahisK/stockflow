@@ -207,7 +207,7 @@ ${ret.notes ? `<div class="section"><strong>Notes:</strong> ${ret.notes}</div>` 
       ? `<img class="sign-img" src="${ret.supervisorSignature}" alt="Supervisor Signature" />`
       : '<div class="sign-line"></div>'}
   </div>
-  <div className="sign-box">
+  <div class="sign-box">
     <div class="sign-label">Accounts Signature</div>
     ${ret.accountsSignature
       ? `<img class="sign-img" src="${ret.accountsSignature}" alt="Accounts Signature" />`

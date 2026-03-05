@@ -109,7 +109,10 @@ export default function Incoming() {
     try {
       const q = query(collection(db, 'users'), where('company', '==', userCompany));
       const res = await getDocs(q);
-      setCompanyUsers(res.docs.map(d => d.data()));
+      const activeUsers = res.docs
+        .map(d => d.data())
+        .filter(u => u.status === 'active' && u.fullName);
+      setCompanyUsers(activeUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -1250,7 +1253,7 @@ export default function Incoming() {
 
               <div className="flex gap-2 pt-4 border-t justify-end mt-6">
                 <button
-                  onClick={() => printIncomingDetail(selectedInvoice)}
+                  onClick={() => printGRNDetail(selectedInvoice)}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
                 >
                   <Printer size={18} />
