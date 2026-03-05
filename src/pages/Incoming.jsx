@@ -51,6 +51,8 @@ export default function Incoming() {
     ],
     supervisorSignature: '',
     accountsSignature: '',
+    supplyChainExecSignature: '',
+    accountsManagerSignature: '',
     notes: '',
     checklist: {
       invoiceChecklist: {
@@ -77,6 +79,7 @@ export default function Incoming() {
       },
       certifications: {
         supervisorName: '',
+        accDeptName: '',
         supplyChainExecName: '',
         accountsManagerName: '',
       }
@@ -108,10 +111,10 @@ export default function Incoming() {
   const fetchCompanyUsers = async () => {
     try {
       const res = await getDocs(collection(db, 'users'));
-      const activeUsers = res.docs
+      const users = res.docs
         .map(d => d.data())
-        .filter(u => u.status === 'active' && u.fullName);
-      setCompanyUsers(activeUsers);
+        .filter(u => u.fullName && u.department && u.department !== 'SUPER_ADMIN');
+      setCompanyUsers(users);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -293,6 +296,8 @@ export default function Incoming() {
         ],
         supervisorSignature: '',
         accountsSignature: '',
+        supplyChainExecSignature: '',
+        accountsManagerSignature: '',
         notes: '',
         checklist: {
           invoiceChecklist: {
@@ -319,6 +324,7 @@ export default function Incoming() {
           },
           certifications: {
             supervisorName: '',
+            accDeptName: '',
             supplyChainExecName: '',
             accountsManagerName: '',
           }
@@ -998,58 +1004,79 @@ export default function Incoming() {
 
                     {/* Department Certifications */}
                     <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
-                      <h5 className="font-bold text-purple-900 mb-3 text-sm uppercase tracking-wider">Departmental Verifications</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-purple-600 mb-1">Supervisor Name</label>
+                      <h5 className="font-bold text-purple-900 mb-4 text-sm uppercase tracking-wider">Departmental Verifications</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {/* Supervisor */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-purple-700 mb-1">Supervisor Name</label>
                           <select
                             value={formData.checklist.certifications.supervisorName}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              checklist: {
-                                ...formData.checklist,
-                                certifications: { ...formData.checklist.certifications, supervisorName: e.target.value }
-                              }
-                            })}
+                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, supervisorName: e.target.value } } })}
                             className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
                           >
                             <option value="">Select Supervisor</option>
                             {companyUsers.filter(u => u.department === 'Supervisor').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
+                          <SignaturePad
+                            label="Supervisor Signature"
+                            placeholder="Sign here"
+                            value={formData.supervisorSignature}
+                            onChange={(dataUrl) => setFormData({ ...formData, supervisorSignature: dataUrl || '' })}
+                          />
                         </div>
-                        <div>
-                          <label className="block text-xs font-bold text-purple-600 mb-1">Supply Chain Exec</label>
+                        {/* Acc. Dept */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-purple-700 mb-1">Acc. Dept</label>
+                          <select
+                            value={formData.checklist.certifications.accDeptName}
+                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accDeptName: e.target.value } } })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Select Accountant</option>
+                            {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                          </select>
+                          <SignaturePad
+                            label="Acc. Dept Signature"
+                            placeholder="Sign here"
+                            value={formData.accountsSignature}
+                            onChange={(dataUrl) => setFormData({ ...formData, accountsSignature: dataUrl || '' })}
+                          />
+                        </div>
+                        {/* S.C. Exec */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-purple-700 mb-1">Supply Chain Exec</label>
                           <select
                             value={formData.checklist.certifications.supplyChainExecName}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              checklist: {
-                                ...formData.checklist,
-                                certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value }
-                              }
-                            })}
+                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value } } })}
                             className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
                           >
                             <option value="">Select SC Exec</option>
                             {companyUsers.filter(u => u.department === 'Supply Chain Exec').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
+                          <SignaturePad
+                            label="SC Exec Signature"
+                            placeholder="Sign here"
+                            value={formData.supplyChainExecSignature}
+                            onChange={(dataUrl) => setFormData({ ...formData, supplyChainExecSignature: dataUrl || '' })}
+                          />
                         </div>
-                        <div>
-                          <label className="block text-xs font-bold text-purple-600 mb-1">Accounts Manager</label>
+                        {/* Accounts Manager */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-purple-700 mb-1">Accounts Manager</label>
                           <select
                             value={formData.checklist.certifications.accountsManagerName}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              checklist: {
-                                ...formData.checklist,
-                                certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value }
-                              }
-                            })}
+                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value } } })}
                             className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
                           >
                             <option value="">Select Accounts Mgr</option>
                             {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
+                          <SignaturePad
+                            label="Accounts Manager Signature"
+                            placeholder="Sign here"
+                            value={formData.accountsManagerSignature}
+                            onChange={(dataUrl) => setFormData({ ...formData, accountsManagerSignature: dataUrl || '' })}
+                          />
                         </div>
                       </div>
                     </div>
@@ -1067,26 +1094,6 @@ export default function Incoming() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
                     rows="3"
                     placeholder="Any additional notes..."
-                  />
-                </div>
-
-                {/* Signatures */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
-                  <SignaturePad
-                    label="Supervisor Signature"
-                    placeholder="Please sign here"
-                    value={formData.supervisorSignature}
-                    onChange={(dataUrl) =>
-                      setFormData({ ...formData, supervisorSignature: dataUrl || '' })
-                    }
-                  />
-                  <SignaturePad
-                    label="Accounts Signature"
-                    placeholder="Please sign here"
-                    value={formData.accountsSignature}
-                    onChange={(dataUrl) =>
-                      setFormData({ ...formData, accountsSignature: dataUrl || '' })
-                    }
                   />
                 </div>
 

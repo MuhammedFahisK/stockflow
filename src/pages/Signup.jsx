@@ -92,7 +92,12 @@ export default function Signup() {
         return;
       }
 
-      await setDoc(doc(db, 'users', newAuthUser.uid), { ...userData, status: 'active', lastLoginAt: new Date() });
+      await setDoc(doc(db, 'users', newAuthUser.uid), {
+        ...userData,
+        uid: newAuthUser.uid,
+        status: 'active',
+        lastLoginAt: new Date(),
+      }, { merge: true });
       await deleteDoc(doc(db, 'users', userDoc.id));
       navigate('/');
     } catch (err) {

@@ -64,8 +64,8 @@ export default function Users() {
         id: doc.id,
         ...doc.data(),
       }));
-      // Show only users that have been fully activated (exclude raw pending_signup stubs)
-      setUsers(data.filter(u => u.status === 'active' && u.fullName));
+      // Show both active and pending_signup users (exclude system-bootstrap docs without a name)
+      setUsers(data.filter(u => u.fullName && (u.status === 'active' || u.status === 'pending_signup')));
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -151,6 +151,7 @@ export default function Users() {
       role: user.role || 'DEPARTMENT_USER',
       department: user.department || DEFAULT_DEPARTMENTS[0],
       employeeId: user.employeeId || '',
+      password: '',
     });
     setShowModal(true);
   };
@@ -319,9 +320,11 @@ export default function Users() {
                           <td className="px-4 py-3">
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.status === 'active'
                               ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700'
+                              : user.status === 'pending_signup'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
                               }`}>
-                              {user.status || 'active'}
+                              {user.status === 'pending_signup' ? 'Pending' : (user.status || 'active')}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center space-x-2">
@@ -357,7 +360,7 @@ export default function Users() {
       {/* Modal */}
       {
         showModal && canManage && (
-          <div className="fixed inset-0 bg- bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
               <div className="p-6">
                 <h3 className="text-xl font-bold mb-4">

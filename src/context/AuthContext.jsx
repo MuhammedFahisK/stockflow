@@ -32,6 +32,8 @@ export const AuthProvider = ({ children }) => {
         try {
           const snap = await getDoc(userRef);
           if (!snap.exists()) {
+            // New user — create the doc with merge:true so if Signup.jsx
+            // writes the real user data concurrently, neither side overwrites the other.
             await setDoc(userRef, {
               uid: currentUser.uid,
               email: currentUser.email || null,
@@ -41,7 +43,7 @@ export const AuthProvider = ({ children }) => {
               fullName: currentUser.email?.split('@')[0] || 'User',
               createdAt: serverTimestamp(),
               lastLoginAt: serverTimestamp(),
-            });
+            }, { merge: true });
           } else {
             const data = snap.data() || {};
             const patch = {};
