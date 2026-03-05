@@ -71,6 +71,28 @@ service cloud.firestore {
       allow create, update, delete: if isAuthenticated() && isSuperAdmin();
     }
 
+    // ── Stock collections (global read) ──────────────────────────────────────
+    // All authenticated users can read all records across all companies.
+    // Create / update / delete remain company-scoped.
+
+    match /incomingStock/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && request.resource.data.company == callerCompany()));
+      allow update, delete: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && resource.data.company == callerCompany()));
+    }
+
+    match /outgoingStock/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && request.resource.data.company == callerCompany()));
+      allow update, delete: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && resource.data.company == callerCompany()));
+    }
+
+    match /returns/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && request.resource.data.company == callerCompany()));
+      allow update, delete: if isAuthenticated() && (isSuperAdmin() || (callerCompany() != null && resource.data.company == callerCompany()));
+    }
+
     // ── All other collections ─────────────────────────────────────────────────
     // Data is scoped to the caller's company.
 

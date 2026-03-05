@@ -103,10 +103,14 @@ export default function Returns() {
   useEffect(() => {
     if (userCompany) {
       fetchProducts();
-      fetchReturns();
       fetchVendors();
     }
   }, [userCompany]);
+
+  // Fetch all returns globally — visible to all users regardless of company
+  useEffect(() => {
+    fetchReturns();
+  }, []);
 
   // Users are global (no company filter) — fetch on mount regardless of userCompany
   useEffect(() => {
@@ -152,11 +156,7 @@ export default function Returns() {
   const fetchReturns = async () => {
     try {
       setLoading(true);
-      const q = query(
-        collection(db, 'returns'),
-        where('company', '==', userCompany)
-      );
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(collection(db, 'returns'));
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),

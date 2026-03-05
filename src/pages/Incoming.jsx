@@ -95,10 +95,14 @@ export default function Incoming() {
   useEffect(() => {
     if (userCompany) {
       fetchProducts();
-      fetchInvoices();
       fetchVendors();
     }
   }, [userCompany]);
+
+  // Fetch all invoices globally — visible to all users regardless of company
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
 
   // Users are global (no company filter) — fetch on mount regardless of userCompany
   useEffect(() => {
@@ -144,11 +148,7 @@ export default function Incoming() {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      const q = query(
-        collection(db, 'incomingStock'),
-        where('company', '==', userCompany)
-      );
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(collection(db, 'incomingStock'));
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
