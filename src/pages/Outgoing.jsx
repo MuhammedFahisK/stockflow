@@ -9,16 +9,17 @@ import {
   Timestamp,
   deleteDoc,
   doc,
+  updateDoc,
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { Plus, X, Download, Eye, Printer } from 'lucide-react';
+import { Plus, X, Download, Eye, Printer, Pencil } from 'lucide-react';
 import { exportToExcel } from '../utils/excelExport';
 import { printOutgoingDetail } from '../utils/printDetail';
 import { PERMISSIONS, hasPermission, DEFAULT_UNITS } from '../utils/permissions';
 import SignaturePad from '../components/SignaturePad';
 
 export default function Outgoing() {
-  const { user, userCompany, userRole, userName } = useAuth();
+  const { user, userCompany, userRole, userName, userDept } = useAuth();
   const [shipments, setShipments] = useState([]);
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -27,6 +28,7 @@ export default function Outgoing() {
   const [loading, setLoading] = useState(false);
   const [companyUsers, setCompanyUsers] = useState([]);
   const [recipients, setRecipients] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
   const [formData, setFormData] = useState({
     invoiceNo: '',
@@ -101,6 +103,7 @@ export default function Outgoing() {
 
   const canCreate = hasPermission(userRole, PERMISSIONS.OUTGOING_CREATE);
   const canDelete = hasPermission(userRole, PERMISSIONS.OUTGOING_DELETE);
+  const canEdit = userRole === 'SUPER_ADMIN' || userDept === 'Accountant';
 
   useEffect(() => {
     if (userCompany) {
@@ -271,14 +274,24 @@ export default function Outgoing() {
         fetchRecipients();
       }
 
-      await addDoc(collection(db, 'outgoingStock'), {
-        ...formData,
-        items: validItems,
-        company: userCompany,
-        createdBy,
-        createdAt: Timestamp.now(),
-        status: 'dispatched',
-      });
+      if (editingId) {
+        await updateDoc(doc(db, 'outgoingStock', editingId), {
+          ...formData,
+          items: validItems,
+          updatedBy: createdBy,
+          updatedAt: Timestamp.now(),
+        });
+        setEditingId(null);
+      } else {
+        await addDoc(collection(db, 'outgoingStock'), {
+          ...formData,
+          items: validItems,
+          company: userCompany,
+          createdBy,
+          createdAt: Timestamp.now(),
+          status: 'dispatched',
+        });
+      }
 
       fetchShipments();
       setShowModal(false);
@@ -356,6 +369,13 @@ export default function Outgoing() {
       console.error('Error saving shipment:', error);
       alert('Error saving shipment. Please try again.');
     }
+  };
+
+  const handleEdit = (record) => {
+    const { id: _id, createdAt, createdBy, company, status, ...fields } = record;
+    setFormData(prev => ({ ...prev, ...fields }));
+    setEditingId(record.id);
+    setShowModal(true);
   };
 
   const handleDelete = async (id) => {
@@ -478,6 +498,15 @@ export default function Outgoing() {
                       >
                         <Eye size={18} />
                       </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => handleEdit(ship)}
+                          className="text-green-600 hover:text-green-800 hover:bg-green-100 p-2 rounded-lg transition inline-block"
+                          title="Edit"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                      )}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete(ship.id)}
@@ -497,13 +526,13 @@ export default function Outgoing() {
       </div>
 
       {/* New Shipment Modal */}
-      {showModal && canCreate && (
+      {showModal && (canCreate || editingId) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-6">
             <div className="sticky top-0 bg-white border-b p-4 sm:p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Create Outgoing Stock Record</h3>
+              <h3 className="text-xl font-bold">{editingId ? 'Edit Outgoing Stock Record' : 'Create Outgoing Stock Record'}</h3>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setEditingId(null); }}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X size={24} />
@@ -1022,7 +1051,7 @@ export default function Outgoing() {
                 <div className="flex gap-2 pt-4 border-t justify-end">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => { setShowModal(false); setEditingId(null); }}
                     className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium"
                   >
                     Cancel
@@ -1031,7 +1060,7 @@ export default function Outgoing() {
                     type="submit"
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
                   >
-                    Save Shipment
+                    {editingId ? 'Update Shipment' : 'Save Shipment'}
                   </button>
                 </div>
               </form>
@@ -1173,18 +1202,30 @@ export default function Outgoing() {
                       <div>
                         <p className="text-[10px] text-purple-400 uppercase font-bold">Supervisor</p>
                         <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.supervisorName || '-'}</p>
+                        {selectedShipment.supervisorSignature && (
+                          <img src={selectedShipment.supervisorSignature} alt="Supervisor Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
                       </div>
                       <div>
                         <p className="text-[10px] text-purple-400 uppercase font-bold">Accounts</p>
                         <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.accountantName || '-'}</p>
+                        {selectedShipment.accountsSignature && (
+                          <img src={selectedShipment.accountsSignature} alt="Accounts Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
                       </div>
                       <div>
                         <p className="text-[10px] text-purple-400 uppercase font-bold">Supply Chain</p>
                         <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.supplyChainExecName || '-'}</p>
+                        {selectedShipment.supplyChainExecSignature && (
+                          <img src={selectedShipment.supplyChainExecSignature} alt="Supply Chain Exec Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
                       </div>
                       <div>
                         <p className="text-[10px] text-purple-400 uppercase font-bold">Acc. Mgr</p>
                         <p className="text-xs font-semibold">{selectedShipment.checklist.certifications.accountsManagerName || '-'}</p>
+                        {selectedShipment.accountsManagerSignature && (
+                          <img src={selectedShipment.accountsManagerSignature} alt="Accounts Manager Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
                       </div>
                     </div>
                   </div>

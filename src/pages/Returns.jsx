@@ -9,16 +9,17 @@ import {
   Timestamp,
   deleteDoc,
   doc,
+  updateDoc,
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import { Plus, X, Download, Eye, Printer, Briefcase } from 'lucide-react';
+import { Plus, X, Download, Eye, Printer, Briefcase, Pencil } from 'lucide-react';
 import { exportToExcel } from '../utils/excelExport';
 import { printReturnsDetail } from '../utils/printDetail';
 import { PERMISSIONS, hasPermission, DEFAULT_UNITS } from '../utils/permissions';
 import SignaturePad from '../components/SignaturePad';
 
 export default function Returns() {
-  const { user, userCompany, userRole, userName } = useAuth();
+  const { user, userCompany, userRole, userName, userDept } = useAuth();
   const [returns, setReturns] = useState([]);
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -27,6 +28,7 @@ export default function Returns() {
   const [loading, setLoading] = useState(false);
   const [companyUsers, setCompanyUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
   const [formData, setFormData] = useState({
     returnNo: '',
@@ -81,6 +83,7 @@ export default function Returns() {
 
   const canCreate = hasPermission(userRole, PERMISSIONS.RETURNS_CREATE);
   const canDelete = hasPermission(userRole, PERMISSIONS.RETURNS_DELETE);
+  const canEdit = userRole === 'SUPER_ADMIN' || userDept === 'Accountant';
 
   const returnReasons = [
     'Damaged',
@@ -265,14 +268,24 @@ export default function Returns() {
         fetchVendors();
       }
 
-      const ref = await addDoc(collection(db, 'returns'), {
-        ...formData,
-        items: validItems,
-        company: userCompany,
-        createdBy,
-        createdAt: Timestamp.now(),
-        status: 'pending',
-      });
+      if (editingId) {
+        await updateDoc(doc(db, 'returns', editingId), {
+          ...formData,
+          items: validItems,
+          updatedBy: createdBy,
+          updatedAt: Timestamp.now(),
+        });
+        setEditingId(null);
+      } else {
+        await addDoc(collection(db, 'returns'), {
+          ...formData,
+          items: validItems,
+          company: userCompany,
+          createdBy,
+          createdAt: Timestamp.now(),
+          status: 'pending',
+        });
+      }
 
       fetchReturns();
       setShowModal(false);
@@ -330,6 +343,13 @@ export default function Returns() {
       console.error('Error saving return:', error);
       alert('Error saving return. Please try again.');
     }
+  };
+
+  const handleEdit = (record) => {
+    const { id: _id, createdAt, createdBy, company, status, ...fields } = record;
+    setFormData(prev => ({ ...prev, ...fields }));
+    setEditingId(record.id);
+    setShowModal(true);
   };
 
   const handleDelete = async (id) => {
@@ -456,6 +476,15 @@ export default function Returns() {
                       >
                         <Eye size={18} />
                       </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => handleEdit(ret)}
+                          className="text-green-600 hover:text-green-800 hover:bg-green-100 p-2 rounded-lg transition inline-block"
+                          title="Edit"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                      )}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete(ret.id)}
@@ -475,13 +504,13 @@ export default function Returns() {
       </div>
 
       {/* New Return Modal */}
-      {showModal && canCreate && (
+      {showModal && (canCreate || editingId) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-6">
             <div className="sticky top-0 bg-white border-b p-4 sm:p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Create Return Record</h3>
+              <h3 className="text-xl font-bold">{editingId ? 'Edit Return Record' : 'Create Return Record'}</h3>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setEditingId(null); }}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X size={24} />
@@ -1053,7 +1082,7 @@ export default function Returns() {
                 <div className="flex gap-2 pt-4 border-t justify-end">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => { setShowModal(false); setEditingId(null); }}
                     className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium"
                   >
                     Cancel
@@ -1062,7 +1091,7 @@ export default function Returns() {
                     type="submit"
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
                   >
-                    Save Return Record
+                    {editingId ? 'Update Return Record' : 'Save Return Record'}
                   </button>
                 </div>
               </form>
@@ -1186,18 +1215,34 @@ export default function Returns() {
 
                   <div className="mt-4 bg-purple-50 p-4 rounded-lg">
                     <p className="font-bold text-xs uppercase text-purple-600 mb-2">Departmental Verifications</p>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
                         <p className="text-[10px] text-purple-400 uppercase font-bold">Supervisor</p>
                         <p className="font-semibold">{selectedReturn.checklist.certifications.supervisorName || '-'}</p>
+                        {selectedReturn.supervisorSignature && (
+                          <img src={selectedReturn.supervisorSignature} alt="Supervisor Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-purple-400 uppercase font-bold">Acc. Dept</p>
+                        <p className="font-semibold">{selectedReturn.checklist.certifications.accDeptName || '-'}</p>
+                        {selectedReturn.accountsSignature && (
+                          <img src={selectedReturn.accountsSignature} alt="Acc. Dept Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
                       </div>
                       <div>
                         <p className="text-[10px] text-purple-400 uppercase font-bold">Supply Chain</p>
                         <p className="font-semibold">{selectedReturn.checklist.certifications.supplyChainExecName || '-'}</p>
+                        {selectedReturn.supplyChainExecSignature && (
+                          <img src={selectedReturn.supplyChainExecSignature} alt="Supply Chain Exec Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
                       </div>
                       <div>
                         <p className="text-[10px] text-purple-400 uppercase font-bold">Accounts Mgr</p>
                         <p className="font-semibold">{selectedReturn.checklist.certifications.accountsManagerName || '-'}</p>
+                        {selectedReturn.accountsManagerSignature && (
+                          <img src={selectedReturn.accountsManagerSignature} alt="Accounts Manager Signature" className="mt-1 max-h-12 border rounded bg-white" />
+                        )}
                       </div>
                     </div>
                   </div>

@@ -40,10 +40,11 @@ ${inv.checklist ? `
 </div>
 <div class="section">
   <strong>Departmental Certifications:</strong>
-  <div style="display:flex; gap:20px; font-size:12px; margin-top:8px;">
+  <div style="display:flex; flex-wrap:wrap; gap:20px; font-size:12px; margin-top:8px;">
     <div>Supervisor: ${inv.checklist.certifications.supervisorName || 'N/A'}</div>
+    <div>Acc. Dept: ${inv.checklist.certifications.accDeptName || 'N/A'}</div>
     <div>Supply Chain: ${inv.checklist.certifications.supplyChainExecName || 'N/A'}</div>
-    <div>Accounts: ${inv.checklist.certifications.accountsManagerName || 'N/A'}</div>
+    <div>Accounts Mgr: ${inv.checklist.certifications.accountsManagerName || 'N/A'}</div>
   </div>
 </div>
 ` : ''}
@@ -56,9 +57,21 @@ ${inv.notes ? `<div class="section"><strong>Notes:</strong> ${inv.notes}</div>` 
       : '<div class="sign-line"></div>'}
   </div>
   <div class="sign-box">
-    <div class="sign-label">Accounts Signature</div>
+    <div class="sign-label">Acc. Dept Signature</div>
     ${inv.accountsSignature
-      ? `<img class="sign-img" src="${inv.accountsSignature}" alt="Accounts Signature" />`
+      ? `<img class="sign-img" src="${inv.accountsSignature}" alt="Acc. Dept Signature" />`
+      : '<div class="sign-line"></div>'}
+  </div>
+  <div class="sign-box">
+    <div class="sign-label">Supply Chain Exec Signature</div>
+    ${inv.supplyChainExecSignature
+      ? `<img class="sign-img" src="${inv.supplyChainExecSignature}" alt="Supply Chain Exec Signature" />`
+      : '<div class="sign-line"></div>'}
+  </div>
+  <div class="sign-box">
+    <div class="sign-label">Accounts Manager Signature</div>
+    ${inv.accountsManagerSignature
+      ? `<img class="sign-img" src="${inv.accountsManagerSignature}" alt="Accounts Manager Signature" />`
       : '<div class="sign-line"></div>'}
   </div>
 </div>
@@ -138,6 +151,18 @@ ${ship.notes ? `<div class="section"><strong>Notes:</strong> ${ship.notes}</div>
       ? `<img class="sign-img" src="${ship.accountsSignature}" alt="Accounts Signature" />`
       : '<div class="sign-line"></div>'}
   </div>
+  <div class="sign-box">
+    <div class="sign-label">Supply Chain Exec Signature</div>
+    ${ship.supplyChainExecSignature
+      ? `<img class="sign-img" src="${ship.supplyChainExecSignature}" alt="Supply Chain Exec Signature" />`
+      : '<div class="sign-line"></div>'}
+  </div>
+  <div class="sign-box">
+    <div class="sign-label">Accounts Manager Signature</div>
+    ${ship.accountsManagerSignature
+      ? `<img class="sign-img" src="${ship.accountsManagerSignature}" alt="Accounts Manager Signature" />`
+      : '<div class="sign-line"></div>'}
+  </div>
 </div>
 </body></html>`;
   const w = window.open('', '_blank');
@@ -192,10 +217,11 @@ ${ret.checklist ? `
 </div>
 <div class="section">
   <strong>Departmental Certifications:</strong>
-  <div style="display:flex; gap:20px; font-size:12px; margin-top:8px;">
+  <div style="display:flex; flex-wrap:wrap; gap:20px; font-size:12px; margin-top:8px;">
     <div>Supervisor: ${ret.checklist.certifications.supervisorName || 'N/A'}</div>
+    <div>Acc. Dept: ${ret.checklist.certifications.accDeptName || 'N/A'}</div>
     <div>Supply Chain: ${ret.checklist.certifications.supplyChainExecName || 'N/A'}</div>
-    <div>Accounts: ${ret.checklist.certifications.accountsManagerName || 'N/A'}</div>
+    <div>Accounts Mgr: ${ret.checklist.certifications.accountsManagerName || 'N/A'}</div>
   </div>
 </div>
 ` : ''}
@@ -208,9 +234,21 @@ ${ret.notes ? `<div class="section"><strong>Notes:</strong> ${ret.notes}</div>` 
       : '<div class="sign-line"></div>'}
   </div>
   <div class="sign-box">
-    <div class="sign-label">Accounts Signature</div>
+    <div class="sign-label">Acc. Dept Signature</div>
     ${ret.accountsSignature
-      ? `<img class="sign-img" src="${ret.accountsSignature}" alt="Accounts Signature" />`
+      ? `<img class="sign-img" src="${ret.accountsSignature}" alt="Acc. Dept Signature" />`
+      : '<div class="sign-line"></div>'}
+  </div>
+  <div class="sign-box">
+    <div class="sign-label">Supply Chain Exec Signature</div>
+    ${ret.supplyChainExecSignature
+      ? `<img class="sign-img" src="${ret.supplyChainExecSignature}" alt="Supply Chain Exec Signature" />`
+      : '<div class="sign-line"></div>'}
+  </div>
+  <div class="sign-box">
+    <div class="sign-label">Accounts Manager Signature</div>
+    ${ret.accountsManagerSignature
+      ? `<img class="sign-img" src="${ret.accountsManagerSignature}" alt="Accounts Manager Signature" />`
       : '<div class="sign-line"></div>'}
   </div>
 </div>
