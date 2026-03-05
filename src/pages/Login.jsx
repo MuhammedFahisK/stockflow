@@ -90,7 +90,7 @@ export default function Login() {
 
                 {/* Logo watermark top-left */}
                 <div className="relative z-10">
-                    <img src={tghLogo} alt={COMPANY_NAME} className="h-12 w-auto object-contain opacity-80" />
+                    <img src={tghLogo} alt={COMPANY_NAME} className="h-20 w-auto object-contain opacity-80" />
                 </div>
 
                 {/* Quote + Company info — bottom */}
@@ -113,7 +113,7 @@ export default function Login() {
                         <img
                             src={tghLogo}
                             alt={COMPANY_NAME}
-                            className="h-20 w-auto object-contain mb-3"
+                            className="h-32 w-auto object-contain mb-3"
                         />
                         <p className="text-xs font-bold tracking-[0.2em] text-slate-500 uppercase">{COMPANY_TAGLINE}</p>
                     </div>
