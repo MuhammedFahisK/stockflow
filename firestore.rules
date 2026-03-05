@@ -41,25 +41,19 @@ service cloud.firestore {
     //   activation flow can delete the temp pending_signup doc.
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (
-        isOwner(userId) ||
-        isSuperAdmin() ||
-        resource.data.status == 'pending_signup' ||
-        (callerCompany() != null && resource.data.company == callerCompany())
-      );
+      // All authenticated users can read any user doc (global user visibility).
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (
         isOwner(userId) ||                          // activation writes own UID doc
         isSuperAdmin() ||                           // super admin creates users
-        // Admin creates a pending_signup doc (random ID, not auth.uid).
-        // Safe: status is locked to 'pending_signup' and company must match caller.
-        (request.resource.data.status == 'pending_signup' &&
-         callerCompany() != null &&
-         request.resource.data.company == callerCompany())
+        // Any authenticated admin can create a pending_signup doc without
+        // requiring a company match (users are now global, not company-scoped).
+        request.resource.data.status == 'pending_signup'
       );
       allow update: if isAuthenticated() && (
         isOwner(userId) ||
         isSuperAdmin() ||
-        (callerCompany() != null && resource.data.company == callerCompany())
+        resource.data.status == 'pending_signup'   // activation flow promotes doc
       );
       allow delete: if isAuthenticated() && (
         isOwner(userId) ||

@@ -4,8 +4,6 @@ import {
   collection,
   addDoc,
   getDocs,
-  query,
-  where,
   updateDoc,
   deleteDoc,
   doc,
@@ -44,17 +42,14 @@ export default function Users() {
   const canManage = hasPermission(userRole, PERMISSIONS.USERS_CREATE);
 
   useEffect(() => {
-    if (!userCompany) return;
     fetchUsers();
     fetchDepartments();
-  }, [userCompany]);
+  }, []);
 
   const fetchDepartments = async () => {
-    if (!userCompany) return;
     try {
-      const q = query(collection(db, 'departments'), where('company', '==', userCompany));
-      const snapshot = await getDocs(q);
-      const customList = snapshot.docs.map(doc => doc.data().name);
+      const snapshot = await getDocs(collection(db, 'departments'));
+      const customList = snapshot.docs.map(doc => doc.data().name).filter(Boolean);
       setDepartments(Array.from(new Set([...DEFAULT_DEPARTMENTS, ...customList])));
     } catch (error) {
       console.error('Error fetching departments:', error);
@@ -62,16 +57,15 @@ export default function Users() {
   };
 
   const fetchUsers = async () => {
-    if (!userCompany) return;
     try {
       setLoading(true);
-      const q = query(collection(db, 'users'), where('company', '==', userCompany));
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(collection(db, 'users'));
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-      setUsers(data);
+      // Show only users that have been fully activated (exclude raw pending_signup stubs)
+      setUsers(data.filter(u => u.status === 'active' && u.fullName));
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -88,10 +82,6 @@ export default function Users() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!userCompany) {
-      alert('Please select a company before adding or editing employees.');
-      return;
-    }
 
     const email = formData.email.trim().toLowerCase();
     const fullName = formData.fullName.trim();
@@ -114,13 +104,12 @@ export default function Users() {
           details: `id=${editingUser.id} name=${fullName}`,
         });
       } else {
-        // Create new user (pending signup sequence)
+        // Create new user (pending signup sequence — no company assigned at creation)
         const ref = await addDoc(collection(db, 'users'), {
           email,
           fullName,
           role: 'DEPARTMENT_USER',
           department: departmentToSave,
-          company: userCompany,
           employeeId: formData.employeeId,
           initialPassword: formData.password,
           status: 'pending_signup',
@@ -128,7 +117,7 @@ export default function Users() {
         });
         logActivity({
           userId: auth?.currentUser?.uid || null,
-          company: userCompany,
+          company: userCompany || null,
           action: 'user:create',
           details: `id=${ref.id} name=${fullName}`,
         });

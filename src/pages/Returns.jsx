@@ -113,8 +113,7 @@ export default function Returns() {
 
   const fetchCompanyUsers = async () => {
     try {
-      const q = query(collection(db, 'users'), where('company', '==', userCompany));
-      const res = await getDocs(q);
+      const res = await getDocs(collection(db, 'users'));
       const activeUsers = res.docs
         .map(d => d.data())
         .filter(u => u.status === 'active' && u.fullName);
