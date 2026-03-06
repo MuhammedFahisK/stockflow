@@ -85,6 +85,12 @@ export default function Users() {
 
     const email = formData.email.trim().toLowerCase();
     const fullName = formData.fullName.trim();
+
+    if (!editingUser && formData.password.length < 6) {
+      alert('Password must be at least 6 characters.');
+      return;
+    }
+
     try {
       const isSuperAdminRole = formData.role === 'SUPER_ADMIN';
       const departmentToSave = isSuperAdminRole ? 'SUPER_ADMIN' : formData.department || null;
@@ -274,7 +280,6 @@ export default function Users() {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        <th className="px-4 py-3 text-left font-semibold">User ID</th>
                         <th className="px-4 py-3 text-left font-semibold">Name</th>
                         <th className="px-4 py-3 text-left font-semibold">Email</th>
                         <th className="px-4 py-3 text-left font-semibold">Company</th>
@@ -286,11 +291,6 @@ export default function Users() {
                     <tbody>
                       {deptUsers.map((user) => (
                         <tr key={user.id} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <span className="font-mono text-blue-700 font-bold bg-blue-50 px-2 py-1 rounded">
-                              {user.employeeId || '—'}
-                            </span>
-                          </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <div className="bg-blue-100 text-blue-600 p-2 rounded-full">
@@ -368,20 +368,6 @@ export default function Users() {
                 </h3>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="md:col-span-2 bg-blue-50 p-3 rounded-lg border border-blue-100 mb-2">
-                    <label className="block text-xs font-bold text-blue-600 uppercase mb-1">Generated User ID</label>
-                    <input
-                      type="text"
-                      name="employeeId"
-                      value={formData.employeeId}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 font-mono font-bold"
-                      placeholder="EMP1234"
-                      required
-                    />
-                    <p className="text-[10px] text-blue-500 mt-1">Share this ID with the employee for registration</p>
-                  </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Full Name *
@@ -424,8 +410,9 @@ export default function Users() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                         placeholder="Assign a temporary password"
                         required={!editingUser}
+                        minLength={6}
                       />
-                      <p className="text-[10px] text-gray-500 mt-1">Employee will use this to sign up</p>
+                      <p className="text-[10px] text-gray-500 mt-1">Must be at least 6 characters. Employee will use this to sign up</p>
                     </div>
                   )}
 
