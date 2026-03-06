@@ -29,6 +29,9 @@ export default function Incoming() {
   const [companyUsers, setCompanyUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [vendorSuggestions, setVendorSuggestions] = useState([]);
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false);
+  const vendorRef = useRef(null);
 
   const [formData, setFormData] = useState({
     invoiceNo: '',
@@ -44,6 +47,7 @@ export default function Incoming() {
         expDate: '',
         unit: 'Pcs',
         qtyReceived: '',
+        partialQty: '',
         rejectedQty: '',
         discrepancy: false,
         discrepancyReason: '',
@@ -60,13 +64,6 @@ export default function Incoming() {
       invoiceChecklist: {
         invoiceNoVerified: false,
         ewayBillVerified: false,
-      },
-      acceptanceDecision: {
-        grnNo: '',
-        qtyAccepted: '',
-        cartonUnits: '',
-        partialQty: '',
-        rejectedQty: '',
       },
       docsToAccounts: {
         originalInvoice: false,
@@ -224,6 +221,7 @@ export default function Incoming() {
           expDate: '',
           unit: 'Pcs',
           qtyReceived: '',
+          partialQty: '',
           rejectedQty: '',
           discrepancy: false,
           discrepancyReason: '',
@@ -245,6 +243,10 @@ export default function Incoming() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!userCompany) {
+      alert('Please select a company before saving.');
+      return;
+    }
     try {
       if (!formData.invoiceNo || formData.items.length === 0) {
         alert('Please enter invoice number and add at least one item');
@@ -300,11 +302,10 @@ export default function Incoming() {
   const getBlankForm = () => ({
     invoiceNo: '', ewayBillNo: '', vendorSupplier: '',
     receivedDate: new Date().toISOString().split('T')[0],
-    items: [{ productName: '', barcode: '', batchNo: '', mfgDate: '', expDate: '', unit: 'Pcs', qtyReceived: '', rejectedQty: '', discrepancy: false, discrepancyReason: '', warehouseLocation: '', verified: false }],
+    items: [{ productName: '', barcode: '', batchNo: '', mfgDate: '', expDate: '', unit: 'Pcs', qtyReceived: '', partialQty: '', rejectedQty: '', discrepancy: false, discrepancyReason: '', warehouseLocation: '', verified: false }],
     supervisorSignature: '', accountsSignature: '', supplyChainExecSignature: '', accountsManagerSignature: '', notes: '',
     checklist: {
       invoiceChecklist: { invoiceNoVerified: false, ewayBillVerified: false },
-      acceptanceDecision: { grnNo: '', qtyAccepted: '', cartonUnits: '', partialQty: '', rejectedQty: '' },
       docsToAccounts: { originalInvoice: false, grnSigned: false },
       finalConfirmation: { qtyRecountMatches: false, rtvConfirmed: false, rtvInvoice: false, ewayBill: false, docsHandedOver: false },
       certifications: { supervisorName: '', accDeptName: '', supplyChainExecName: '', accountsManagerName: '' },
@@ -319,7 +320,14 @@ export default function Incoming() {
 
   const handleEdit = (record) => {
     const { id: _id, createdAt, createdBy, company, status, updatedAt, updatedBy, ...fields } = record;
-    setFormData({ ...getBlankForm(), ...fields });
+    const blank = getBlankForm();
+    const blankItem = blank.items[0];
+    setFormData({
+      ...blank,
+      ...fields,
+      checklist: { ...blank.checklist, ...(fields.checklist || {}) },
+      items: (fields.items?.length ? fields.items : blank.items).map(item => ({ ...blankItem, ...item })),
+    });
     setEditingId(record.id);
     setShowModal(true);
   };
@@ -521,20 +529,49 @@ export default function Incoming() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Vendor/Supplier *
                     </label>
-                    <input
-                      list="vendor-options"
-                      type="text"
-                      value={formData.vendorSupplier}
-                      onChange={(e) =>
-                        setFormData({ ...formData, vendorSupplier: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      placeholder="Supplier Name"
-                      required
-                    />
-                    <datalist id="vendor-options">
-                      {vendors.map((v, i) => <option key={i} value={v} />)}
-                    </datalist>
+                    <div className="relative" ref={vendorRef}>
+                      <input
+                        type="text"
+                        value={formData.vendorSupplier}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({ ...formData, vendorSupplier: val });
+                          const filtered = vendors.filter(v =>
+                            v.toLowerCase().includes(val.toLowerCase())
+                          );
+                          setVendorSuggestions(filtered);
+                          setShowVendorDropdown(val.length > 0 && filtered.length > 0);
+                        }}
+                        onFocus={() => {
+                          const val = formData.vendorSupplier;
+                          const filtered = vendors.filter(v =>
+                            v.toLowerCase().includes(val.toLowerCase())
+                          );
+                          if (filtered.length > 0) setShowVendorDropdown(true);
+                          setVendorSuggestions(filtered);
+                        }}
+                        onBlur={() => setTimeout(() => setShowVendorDropdown(false), 150)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        placeholder="Supplier Name"
+                        required
+                      />
+                      {showVendorDropdown && (
+                        <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                          {vendorSuggestions.map((v, i) => (
+                            <li
+                              key={i}
+                              onMouseDown={() => {
+                                setFormData({ ...formData, vendorSupplier: v });
+                                setShowVendorDropdown(false);
+                              }}
+                              className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              {v}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -668,19 +705,64 @@ export default function Incoming() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Qty Received *
                           </label>
+                          {(() => {
+                            const batches = getBatchOptionsForProduct(item.productName);
+                            const batchObj = batches.find(b => b.batchNo === item.batchNo);
+                            const maxQty = batchObj?.qty
+                              ? parseInt(batchObj.qty, 10)
+                              : batches.length > 0
+                                ? batches.reduce((s, b) => s + parseInt(b.qty || 0, 10), 0)
+                                : undefined;
+                            const currentVal = parseInt(item.qtyReceived || 0, 10);
+                            const isOver = maxQty !== undefined && !isNaN(currentVal) && currentVal > maxQty;
+                            return (
+                              <>
+                                <input
+                                  type="number"
+                                  value={item.qtyReceived}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === '') {
+                                      handleItemChange(index, 'qtyReceived', raw);
+                                      return;
+                                    }
+                                    const numVal = parseInt(raw, 10);
+                                    if (!isNaN(numVal) && maxQty !== undefined && numVal > maxQty) {
+                                      handleItemChange(index, 'qtyReceived', String(maxQty));
+                                    } else {
+                                      handleItemChange(index, 'qtyReceived', raw);
+                                    }
+                                  }}
+                                  className={`w-full px-2 py-1 border rounded text-sm ${isOver ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                                  required
+                                  min={0}
+                                  max={maxQty}
+                                />
+                                {maxQty !== undefined && (
+                                  <p className={`text-xs mt-0.5 ${isOver ? 'text-red-600 font-semibold' : 'text-gray-400'}`}>
+                                    {isOver ? `⚠ Max allowed: ${maxQty}` : `Available: ${maxQty}`}
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Partial Qty
+                          </label>
                           <input
                             type="number"
-                            value={item.qtyReceived}
+                            value={item.partialQty}
                             onChange={(e) =>
-                              handleItemChange(index, 'qtyReceived', e.target.value)
+                              handleItemChange(index, 'partialQty', e.target.value)
                             }
                             className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                            required
                           />
                         </div>
                         <div>
@@ -794,89 +876,6 @@ export default function Incoming() {
                           />
                           <span className="text-sm font-medium">E-WAY Bill & Expiry Verified</span>
                         </label>
-                      </div>
-                    </div>
-
-                    {/* Acceptance Decision */}
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                      <h5 className="font-bold text-gray-900 mb-3 text-sm uppercase tracking-wider">Acceptance Decision</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-600 mb-1">GRN NO</label>
-                          <input
-                            type="text"
-                            value={formData.checklist.acceptanceDecision.grnNo}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              checklist: {
-                                ...formData.checklist,
-                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, grnNo: e.target.value }
-                              }
-                            })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                            placeholder="GRN-001"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-600 mb-1">QTY ACCEPTED</label>
-                          <input
-                            type="number"
-                            value={formData.checklist.acceptanceDecision.qtyAccepted}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              checklist: {
-                                ...formData.checklist,
-                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, qtyAccepted: e.target.value }
-                              }
-                            })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-600 mb-1">CARTON/UNITS</label>
-                          <input
-                            type="text"
-                            value={formData.checklist.acceptanceDecision.cartonUnits}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              checklist: {
-                                ...formData.checklist,
-                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, cartonUnits: e.target.value }
-                              }
-                            })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-600 mb-1">PARTIAL QTY</label>
-                          <input
-                            type="number"
-                            value={formData.checklist.acceptanceDecision.partialQty}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              checklist: {
-                                ...formData.checklist,
-                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, partialQty: e.target.value }
-                              }
-                            })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-600 mb-1">REJECTED QTY</label>
-                          <input
-                            type="number"
-                            value={formData.checklist.acceptanceDecision.rejectedQty}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              checklist: {
-                                ...formData.checklist,
-                                acceptanceDecision: { ...formData.checklist.acceptanceDecision, rejectedQty: e.target.value }
-                              }
-                            })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          />
-                        </div>
                       </div>
                     </div>
 

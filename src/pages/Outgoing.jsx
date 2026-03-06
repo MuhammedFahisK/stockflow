@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../config/firebase';
 import {
   collection,
@@ -30,6 +30,13 @@ export default function Outgoing() {
   const [recipients, setRecipients] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState('dispatched');
+  const [recipientSuggestions, setRecipientSuggestions] = useState([]);
+  const [showRecipientDropdown, setShowRecipientDropdown] = useState(false);
+  const recipientRef = useRef(null);
+  const [vehicleNos, setVehicleNos] = useState([]);
+  const [vehicleSuggestions, setVehicleSuggestions] = useState([]);
+  const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
+  const vehicleRef = useRef(null);
 
   const [formData, setFormData] = useState({
     invoiceNo: '',
@@ -113,6 +120,7 @@ export default function Outgoing() {
     if (userCompany) {
       fetchProducts();
       fetchRecipients();
+      fetchVehicleNos();
     }
   }, [userCompany]);
 
@@ -133,6 +141,16 @@ export default function Outgoing() {
       setRecipients(res.docs.map(d => d.data().name));
     } catch (err) {
       console.error('Error fetching recipients:', err);
+    }
+  };
+
+  const fetchVehicleNos = async () => {
+    try {
+      const q = query(collection(db, 'vehicles'), where('company', '==', userCompany));
+      const res = await getDocs(q);
+      setVehicleNos(res.docs.map(d => d.data().vehicleNo));
+    } catch (err) {
+      console.error('Error fetching vehicles:', err);
     }
   };
 
@@ -258,6 +276,10 @@ export default function Outgoing() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!userCompany) {
+      alert('Please select a company before saving.');
+      return;
+    }
     try {
       if (!formData.invoiceNo || formData.items.length === 0) {
         alert('Please enter invoice number and add at least one item');
@@ -280,6 +302,16 @@ export default function Outgoing() {
           createdAt: new Date()
         });
         fetchRecipients();
+      }
+
+      // Save Vehicle No if new
+      if (formData.vehicleNo && !vehicleNos.includes(formData.vehicleNo)) {
+        await addDoc(collection(db, 'vehicles'), {
+          vehicleNo: formData.vehicleNo,
+          company: userCompany,
+          createdAt: new Date()
+        });
+        fetchVehicleNos();
       }
 
       if (editingId) {
@@ -335,7 +367,14 @@ export default function Outgoing() {
 
   const handleEdit = (record) => {
     const { id: _id, createdAt, createdBy, company, status, updatedAt, updatedBy, ...fields } = record;
-    setFormData({ ...getBlankForm(), ...fields });
+    const blank = getBlankForm();
+    const blankItem = blank.items[0];
+    setFormData({
+      ...blank,
+      ...fields,
+      checklist: { ...blank.checklist, ...(fields.checklist || {}) },
+      items: (fields.items?.length ? fields.items : blank.items).map(item => ({ ...blankItem, ...item })),
+    });
     setEditingId(record.id);
     setShowModal(true);
   };
@@ -421,8 +460,8 @@ export default function Outgoing() {
         <button
           onClick={() => setActiveTab('dispatched')}
           className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'dispatched'
-              ? 'bg-orange-600 text-white shadow'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'bg-orange-600 text-white shadow'
+            : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           🚚 Dispatched
@@ -434,8 +473,8 @@ export default function Outgoing() {
         <button
           onClick={() => setActiveTab('delivered')}
           className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'delivered'
-              ? 'bg-green-600 text-white shadow'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'bg-green-600 text-white shadow'
+            : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           ✅ Delivered
@@ -470,8 +509,8 @@ export default function Outgoing() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className={`border-b-2 ${activeTab === 'delivered'
-                  ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-200'
-                  : 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200'
+                ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-200'
+                : 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200'
                 }`}>
                 <tr>
                   <th className={`px-6 py-4 text-left font-bold ${activeTab === 'delivered' ? 'text-green-900' : 'text-orange-900'}`}>Delivery Note No</th>
@@ -604,35 +643,69 @@ export default function Outgoing() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Recipient Name *
                     </label>
-                    <input
-                      list="recipient-options"
-                      type="text"
-                      value={formData.recipientName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, recipientName: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      placeholder="Recipient/Customer Name"
-                      required
-                    />
-                    <datalist id="recipient-options">
-                      {recipients.map((r, i) => <option key={i} value={r} />)}
-                    </datalist>
+                    <div className="relative" ref={recipientRef}>
+                      <input
+                        type="text"
+                        value={formData.recipientName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({ ...formData, recipientName: val });
+                          const filtered = recipients.filter(r => r.toLowerCase().includes(val.toLowerCase()));
+                          setRecipientSuggestions(filtered);
+                          setShowRecipientDropdown(val.length > 0 && filtered.length > 0);
+                        }}
+                        onFocus={() => {
+                          const filtered = recipients.filter(r => r.toLowerCase().includes(formData.recipientName.toLowerCase()));
+                          if (filtered.length > 0) setShowRecipientDropdown(true);
+                          setRecipientSuggestions(filtered);
+                        }}
+                        onBlur={() => setTimeout(() => setShowRecipientDropdown(false), 150)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        placeholder="Recipient/Customer Name"
+                        required
+                      />
+                      {showRecipientDropdown && (
+                        <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                          {recipientSuggestions.map((r, i) => (
+                            <li key={i} onMouseDown={() => { setFormData({ ...formData, recipientName: r }); setShowRecipientDropdown(false); }} className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700">{r}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Vehicle No
                     </label>
-                    <input
-                      type="text"
-                      value={formData.vehicleNo}
-                      onChange={(e) =>
-                        setFormData({ ...formData, vehicleNo: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      placeholder="DL-01-AB-1234"
-                    />
+                    <div className="relative" ref={vehicleRef}>
+                      <input
+                        type="text"
+                        value={formData.vehicleNo}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({ ...formData, vehicleNo: val });
+                          const filtered = vehicleNos.filter(v => v.toLowerCase().includes(val.toLowerCase()));
+                          setVehicleSuggestions(filtered);
+                          setShowVehicleDropdown(val.length > 0 && filtered.length > 0);
+                        }}
+                        onFocus={() => {
+                          const filtered = vehicleNos.filter(v => v.toLowerCase().includes(formData.vehicleNo.toLowerCase()));
+                          if (filtered.length > 0) setShowVehicleDropdown(true);
+                          setVehicleSuggestions(filtered);
+                        }}
+                        onBlur={() => setTimeout(() => setShowVehicleDropdown(false), 150)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        placeholder="DL-01-AB-1234"
+                      />
+                      {showVehicleDropdown && (
+                        <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                          {vehicleSuggestions.map((v, i) => (
+                            <li key={i} onMouseDown={() => { setFormData({ ...formData, vehicleNo: v }); setShowVehicleDropdown(false); }} className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700">{v}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">
@@ -1121,8 +1194,8 @@ export default function Outgoing() {
               <div className="flex items-center gap-3">
                 <h3 className="text-xl font-bold">Delivery Note Details - {selectedShipment.invoiceNo}</h3>
                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedShipment.status === 'delivered'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-orange-100 text-orange-700'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-orange-100 text-orange-700'
                   }`}>
                   {selectedShipment.status === 'delivered' ? '✅ Delivered' : '🚚 Dispatched'}
                 </span>

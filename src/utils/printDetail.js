@@ -27,6 +27,7 @@ h1{font-size:20px;}
 <div class="meta"><strong>GRN No:</strong> ${inv.invoiceNo} | <strong>Vendor:</strong> ${inv.vendorSupplier || ''}</div>
 <div class="meta"><strong>E-Way Bill:</strong> ${inv.ewayBillNo || 'N/A'} | <strong>Date:</strong> ${inv.receivedDate || ''}</div>
 <div class="meta"><strong>Print Date:</strong> ${new Date().toLocaleString()}</div>
+${inv.createdAt ? `<div class="meta"><strong>Invoice Created:</strong> ${inv.createdAt.toDate ? inv.createdAt.toDate().toLocaleString() : new Date(inv.createdAt).toLocaleString()}</div>` : ''}
 ${inv.createdBy ? `<div class="meta"><strong>Recorded by:</strong> ${inv.createdBy}</div>` : ''}
 <table><thead><tr><th>Product</th><th>Barcode</th><th>Batch</th><th>Exp Date</th><th>Qty</th><th>Rejected</th><th>Location</th></tr></thead><tbody>${rows}</tbody></table>
 ${inv.checklist ? `
@@ -115,6 +116,7 @@ h1{font-size:20px;}
 <div class="meta"><strong>E-Way Bill:</strong> ${ship.ewayBillNo || 'N/A'} | <strong>Vehicle:</strong> ${ship.vehicleNo || 'N/A'}</div>
 <div class="meta"><strong>Status:</strong> <span style="font-weight:bold;color:${ship.status === 'delivered' ? 'green' : 'orange'}">${ship.status === 'delivered' ? '✅ DELIVERED' : '🚚 DISPATCHED'}</span></div>
 <div class="meta"><strong>Print Date:</strong> ${new Date().toLocaleString()}</div>
+${ship.createdAt ? `<div class="meta"><strong>Invoice Created:</strong> ${ship.createdAt.toDate ? ship.createdAt.toDate().toLocaleString() : new Date(ship.createdAt).toLocaleString()}</div>` : ''}
 ${ship.dispatchDate ? `<div class="meta"><strong>Dispatch Date:</strong> ${ship.dispatchDate}</div>` : ''}
 ${ship.createdBy ? `<div class="meta"><strong>Recorded by:</strong> ${ship.createdBy}</div>` : ''}
 ${ship.deliveredAt ? `<div class="meta"><strong>Delivered On:</strong> ${ship.deliveredAt.toDate ? ship.deliveredAt.toDate().toLocaleString() : ship.deliveredAt}${ship.deliveredBy ? ` &nbsp;|&nbsp; <strong>Delivered By:</strong> ${ship.deliveredBy}` : ''}</div>` : ''}
@@ -212,6 +214,7 @@ h1{font-size:20px;}
 <div class="meta"><strong>Return No:</strong> ${ret.returnNo} | <strong>Vendor:</strong> ${ret.vendors || ''}</div>
 <div class="meta"><strong>Invoice No:</strong> ${ret.invoiceNo || 'N/A'} | <strong>Return Date:</strong> ${ret.returnDate || ''}</div>
 <div class="meta"><strong>Print Date:</strong> ${new Date().toLocaleString()}</div>
+${ret.createdAt ? `<div class="meta"><strong>Invoice Created:</strong> ${ret.createdAt.toDate ? ret.createdAt.toDate().toLocaleString() : new Date(ret.createdAt).toLocaleString()}</div>` : ''}
 <div class="meta"><strong>Status:</strong> ${ret.status || ''}</div>
 ${ret.createdBy ? `<div class="meta"><strong>Recorded by:</strong> ${ret.createdBy}</div>` : ''}
 <table><thead><tr><th>Product</th><th>Batch</th><th>Exp Date</th><th>Qty</th><th>Reason</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>

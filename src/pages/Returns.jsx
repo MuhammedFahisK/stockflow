@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../config/firebase';
 import {
   collection,
@@ -29,6 +29,9 @@ export default function Returns() {
   const [companyUsers, setCompanyUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [vendorSuggestions, setVendorSuggestions] = useState([]);
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false);
+  const vendorRef = useRef(null);
 
   const [formData, setFormData] = useState({
     returnNo: '',
@@ -250,6 +253,10 @@ export default function Returns() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!userCompany) {
+      alert('Please select a company before saving.');
+      return;
+    }
     try {
       if (!formData.returnNo || formData.items.length === 0) {
         alert('Please enter return number and add at least one item');
@@ -325,7 +332,14 @@ export default function Returns() {
 
   const handleEdit = (record) => {
     const { id: _id, createdAt, createdBy, company, status, updatedAt, updatedBy, ...fields } = record;
-    setFormData({ ...getBlankForm(), ...fields });
+    const blank = getBlankForm();
+    const blankItem = blank.items[0];
+    setFormData({
+      ...blank,
+      ...fields,
+      checklist: { ...blank.checklist, ...(fields.checklist || {}) },
+      items: (fields.items?.length ? fields.items : blank.items).map(item => ({ ...blankItem, ...item })),
+    });
     setEditingId(record.id);
     setShowModal(true);
   };
@@ -554,20 +568,35 @@ export default function Returns() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Vendor/Supplier *
                     </label>
-                    <input
-                      list="vendor-options"
-                      type="text"
-                      value={formData.vendors}
-                      onChange={(e) =>
-                        setFormData({ ...formData, vendors: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      placeholder="Vendor/Supplier Name"
-                      required
-                    />
-                    <datalist id="vendor-options">
-                      {vendors.map((v, i) => <option key={i} value={v} />)}
-                    </datalist>
+                    <div className="relative" ref={vendorRef}>
+                      <input
+                        type="text"
+                        value={formData.vendors}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({ ...formData, vendors: val });
+                          const filtered = vendors.filter(v => v.toLowerCase().includes(val.toLowerCase()));
+                          setVendorSuggestions(filtered);
+                          setShowVendorDropdown(val.length > 0 && filtered.length > 0);
+                        }}
+                        onFocus={() => {
+                          const filtered = vendors.filter(v => v.toLowerCase().includes(formData.vendors.toLowerCase()));
+                          if (filtered.length > 0) setShowVendorDropdown(true);
+                          setVendorSuggestions(filtered);
+                        }}
+                        onBlur={() => setTimeout(() => setShowVendorDropdown(false), 150)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        placeholder="Vendor/Supplier Name"
+                        required
+                      />
+                      {showVendorDropdown && (
+                        <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                          {vendorSuggestions.map((v, i) => (
+                            <li key={i} onMouseDown={() => { setFormData({ ...formData, vendors: v }); setShowVendorDropdown(false); }} className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700">{v}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
 
                   <div>

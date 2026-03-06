@@ -18,7 +18,7 @@ import { logActivity } from '../utils/activityLogger';
 import BarcodeScannerDialog from '../components/BarcodeScannerDialog';
 
 export default function Products() {
-  const { userCompany, userRole } = useAuth();
+  const { userCompany, userRole, userDept } = useAuth();
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -35,9 +35,9 @@ export default function Products() {
     batches: [{ batchNo: '', mfgDate: '', expDate: '', qty: '' }],
   });
 
-  const canCreate = hasPermission(userRole, PERMISSIONS.PRODUCT_CREATE);
-  const canUpdate = hasPermission(userRole, PERMISSIONS.PRODUCT_UPDATE);
-  const canDelete = hasPermission(userRole, PERMISSIONS.PRODUCT_DELETE);
+  const canCreate = userRole === 'SUPER_ADMIN' || userDept === 'Accountant';
+  const canUpdate = userRole === 'SUPER_ADMIN' || userDept === 'Accountant';
+  const canDelete = userRole === 'SUPER_ADMIN' || userDept === 'Accountant';
 
   // Fetch products
   useEffect(() => {
