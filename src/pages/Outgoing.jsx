@@ -41,6 +41,7 @@ export default function Outgoing() {
   const [formData, setFormData] = useState({
     invoiceNo: '',
     ewayBillNo: '',
+    salesInvoiceNo: '',
     recipientName: '',
     recipientAddress: '',
     dispatchDate: new Date().toISOString().split('T')[0],
@@ -348,7 +349,7 @@ export default function Outgoing() {
   };
 
   const getBlankForm = () => ({
-    invoiceNo: '', ewayBillNo: '', recipientName: '', recipientAddress: '',
+    invoiceNo: '', ewayBillNo: '', salesInvoiceNo: '', recipientName: '', recipientAddress: '',
     dispatchDate: new Date().toISOString().split('T')[0],
     items: [{ productName: '', barcode: '', batchNo: '', mfgDate: '', expDate: '', unit: 'Pcs', qtyDispatched: '', warehouseLocation: '' }],
     supervisorSignature: '', accountsSignature: '', supplyChainExecSignature: '', accountsManagerSignature: '', driverSignature: '',
@@ -626,8 +627,9 @@ export default function Outgoing() {
                 {/* Header Section */}
                 <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg${isLimitedEdit && userDept !== 'Driver' ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Delivery Note No * <span className="text-gray-500 font-normal">(Confirms goods delivered)</span>
+                    <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-1">
+                      <span>Delivery Note No * <span className="text-gray-500 font-normal">(Confirms goods delivered)</span></span>
+                      <button type="button" onClick={() => setFormData({ ...formData, invoiceNo: `DN-${String(shipments.length + 1).padStart(3, '0')}` })} className="text-xs text-blue-600 hover:text-blue-800 underline font-normal">Auto Generate</button>
                     </label>
                     <input
                       type="text"
@@ -653,6 +655,19 @@ export default function Outgoing() {
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                       placeholder="EWB-123456"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Invoice No (INV) <span className="text-gray-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.salesInvoiceNo || ''}
+                      onChange={(e) => setFormData({ ...formData, salesInvoiceNo: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      placeholder="INV-001"
                     />
                   </div>
 

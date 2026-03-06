@@ -36,6 +36,7 @@ export default function Incoming() {
   const [formData, setFormData] = useState({
     invoiceNo: '',
     ewayBillNo: '',
+    vendorInvoiceNo: '',
     vendorSupplier: '',
     receivedDate: new Date().toISOString().split('T')[0],
     items: [
@@ -305,7 +306,7 @@ export default function Incoming() {
   };
 
   const getBlankForm = () => ({
-    invoiceNo: '', ewayBillNo: '', vendorSupplier: '',
+    invoiceNo: '', ewayBillNo: '', vendorInvoiceNo: '', vendorSupplier: '',
     receivedDate: new Date().toISOString().split('T')[0],
     items: [{ productName: '', barcode: '', batchNo: '', mfgDate: '', expDate: '', unit: 'Pcs', qtyReceived: '', partialQty: '', rejectedQty: '', discrepancy: false, discrepancyReason: '', warehouseLocation: '', verified: false }],
     supervisorSignature: '', accountsSignature: '', supplyChainExecSignature: '', accountsManagerSignature: '', notes: '',
@@ -509,8 +510,9 @@ export default function Incoming() {
                 {/* Header Section */}
                 <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg${isLimitedEdit ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      GRN No * <span className="text-gray-500 font-normal">(Goods Received Note)</span>
+                    <label className="flex items-center justify-between text-sm font-medium text-gray-700 mb-1">
+                      <span>GRN No * <span className="text-gray-500 font-normal">(Goods Received Note)</span></span>
+                      <button type="button" onClick={() => setFormData({ ...formData, invoiceNo: `GRN-${String(invoices.length + 1).padStart(3, '0')}` })} className="text-xs text-blue-600 hover:text-blue-800 underline font-normal">Auto Generate</button>
                     </label>
                     <input
                       type="text"
@@ -536,6 +538,19 @@ export default function Incoming() {
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
                       placeholder="EWB-123456"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Supplier Invoice No <span className="text-gray-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.vendorInvoiceNo || ''}
+                      onChange={(e) => setFormData({ ...formData, vendorInvoiceNo: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      placeholder="INV-001"
                     />
                   </div>
 
@@ -1006,65 +1021,65 @@ export default function Incoming() {
                           </div>
                         </div>
                         {/* Acc. Dept */}
-                          <div className={`space-y-2${isLimitedEdit && userDept !== 'Accountant' ? ' pointer-events-none opacity-50' : ''}`}>
-                            <label className="block text-xs font-bold text-purple-700 mb-1">Acc. Dept</label>
-                            <select
-                              value={formData.checklist.certifications.accDeptName}
-                              onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accDeptName: e.target.value } } })}
-                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
-                            >
-                              <option value="">Select Accountant</option>
-                              {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
-                            </select>
-                            <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.accDeptName ? 'pointer-events-none opacity-50 select-none' : ''}>
-                              <SignaturePad
-                                label="Acc. Dept Signature"
-                                placeholder="Sign here"
-                                value={formData.accountsSignature}
-                                onChange={(dataUrl) => setFormData({ ...formData, accountsSignature: dataUrl || '' })}
-                              />
-                            </div>
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Accountant' ? ' pointer-events-none opacity-50' : ''}`}>
+                          <label className="block text-xs font-bold text-purple-700 mb-1">Acc. Dept</label>
+                          <select
+                            value={formData.checklist.certifications.accDeptName}
+                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accDeptName: e.target.value } } })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Select Accountant</option>
+                            {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                          </select>
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.accDeptName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="Acc. Dept Signature"
+                              placeholder="Sign here"
+                              value={formData.accountsSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, accountsSignature: dataUrl || '' })}
+                            />
                           </div>
+                        </div>
                         {/* S.C. Exec */}
-                          <div className={`space-y-2${isLimitedEdit && userDept !== 'Supply Chain Exec' ? ' pointer-events-none opacity-50' : ''}`}>
-                            <label className="block text-xs font-bold text-purple-700 mb-1">Supply Chain Exec</label>
-                            <select
-                              value={formData.checklist.certifications.supplyChainExecName}
-                              onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value } } })}
-                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
-                            >
-                              <option value="">Select SC Exec</option>
-                              {companyUsers.filter(u => u.department === 'Supply Chain Exec').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
-                            </select>
-                            <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.supplyChainExecName ? 'pointer-events-none opacity-50 select-none' : ''}>
-                              <SignaturePad
-                                label="SC Exec Signature"
-                                placeholder="Sign here"
-                                value={formData.supplyChainExecSignature}
-                                onChange={(dataUrl) => setFormData({ ...formData, supplyChainExecSignature: dataUrl || '' })}
-                              />
-                            </div>
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Supply Chain Exec' ? ' pointer-events-none opacity-50' : ''}`}>
+                          <label className="block text-xs font-bold text-purple-700 mb-1">Supply Chain Exec</label>
+                          <select
+                            value={formData.checklist.certifications.supplyChainExecName}
+                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value } } })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Select SC Exec</option>
+                            {companyUsers.filter(u => u.department === 'Supply Chain Exec').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                          </select>
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.supplyChainExecName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="SC Exec Signature"
+                              placeholder="Sign here"
+                              value={formData.supplyChainExecSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, supplyChainExecSignature: dataUrl || '' })}
+                            />
                           </div>
+                        </div>
                         {/* Accounts Manager */}
-                          <div className={`space-y-2${isLimitedEdit && userDept !== 'Accountant' ? ' pointer-events-none opacity-50' : ''}`}>
-                            <label className="block text-xs font-bold text-purple-700 mb-1">Accounts Manager</label>
-                            <select
-                              value={formData.checklist.certifications.accountsManagerName}
-                              onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value } } })}
-                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
-                            >
-                              <option value="">Select Accounts Mgr</option>
-                              {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
-                            </select>
-                            <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.accountsManagerName ? 'pointer-events-none opacity-50 select-none' : ''}>
-                              <SignaturePad
-                                label="Accounts Manager Signature"
-                                placeholder="Sign here"
-                                value={formData.accountsManagerSignature}
-                                onChange={(dataUrl) => setFormData({ ...formData, accountsManagerSignature: dataUrl || '' })}
-                              />
-                            </div>
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Accountant' ? ' pointer-events-none opacity-50' : ''}`}>
+                          <label className="block text-xs font-bold text-purple-700 mb-1">Accounts Manager</label>
+                          <select
+                            value={formData.checklist.certifications.accountsManagerName}
+                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value } } })}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Select Accounts Mgr</option>
+                            {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                          </select>
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.accountsManagerName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="Accounts Manager Signature"
+                              placeholder="Sign here"
+                              value={formData.accountsManagerSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, accountsManagerSignature: dataUrl || '' })}
+                            />
                           </div>
+                        </div>
                       </div>
                     </div>
                   </div>
