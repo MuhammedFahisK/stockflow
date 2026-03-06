@@ -87,7 +87,12 @@ export default function Incoming() {
 
   const canCreate = hasPermission(userRole, PERMISSIONS.INCOMING_CREATE);
   const canDelete = hasPermission(userRole, PERMISSIONS.INCOMING_DELETE);
-  const canEdit = userRole === 'SUPER_ADMIN' || userDept === 'Accountant';
+  // Full editors: can change all fields on any invoice
+  const isFullEdit = userRole === 'SUPER_ADMIN' || userDept === 'Accountant' || userDept === 'Supervisor' || userDept === 'Supply Chain Exec';
+  // Any authenticated user may open an invoice to fill their department's signature section
+  const canEditRecord = () => true;
+  // When editing an invoice and user doesn't have full-edit rights → limited signature-only mode
+  const isLimitedEdit = !!editingId && !isFullEdit;
 
   useEffect(() => {
     if (userCompany) {
@@ -449,7 +454,7 @@ export default function Incoming() {
                       >
                         <Eye size={18} />
                       </button>
-                      {canEdit && (
+                      {canEditRecord(inv) && (
                         <button
                           onClick={() => handleEdit(inv)}
                           className="text-green-600 hover:text-green-800 hover:bg-green-100 p-2 rounded transition inline-block"
@@ -481,7 +486,7 @@ export default function Incoming() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-6">
             <div className="sticky top-0 bg-white border-b p-4 sm:p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold">{editingId ? 'Edit Incoming Stock Record' : 'Record New Incoming Stock'}</h3>
+              <h3 className="text-xl font-bold">{editingId ? (isLimitedEdit ? 'Fill Your Department Signature' : 'Edit Incoming Stock Record') : 'Record New Incoming Stock'}</h3>
               <button
                 onClick={() => { setShowModal(false); setEditingId(null); }}
                 className="text-gray-500 hover:text-gray-700"
@@ -492,8 +497,17 @@ export default function Incoming() {
 
             <div className="p-4 sm:p-6 max-h-[80vh] overflow-y-auto">
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Limited-edit banner */}
+                {isLimitedEdit && (
+                  <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 flex items-start gap-2 text-sm text-yellow-800">
+                    <span className="text-lg leading-none mt-0.5">🔒</span>
+                    <div>
+                      <strong>Signature Mode</strong> — The main invoice fields are locked. Scroll down to the <em>Departmental Verifications</em> section to fill your department's name and add your signature.
+                    </div>
+                  </div>
+                )}
                 {/* Header Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg">
+                <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg${isLimitedEdit ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       GRN No * <span className="text-gray-500 font-normal">(Goods Received Note)</span>
@@ -590,7 +604,7 @@ export default function Incoming() {
                 </div>
 
                 {/* Items Section */}
-                <div className="border-t pt-4">
+                <div className={`border-t pt-4${isLimitedEdit ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                   <h4 className="font-semibold mb-4 text-lg">Line Items</h4>
                   {formData.items.map((item, index) => (
                     <div key={index} className="mb-4 p-4 border rounded-lg bg-gray-50 relative">
@@ -710,47 +724,16 @@ export default function Incoming() {
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Qty Received *
                           </label>
-                          {(() => {
-                            const batches = getBatchOptionsForProduct(item.productName);
-                            const batchObj = batches.find(b => b.batchNo === item.batchNo);
-                            const maxQty = batchObj?.qty
-                              ? parseInt(batchObj.qty, 10)
-                              : batches.length > 0
-                                ? batches.reduce((s, b) => s + parseInt(b.qty || 0, 10), 0)
-                                : undefined;
-                            const currentVal = parseInt(item.qtyReceived || 0, 10);
-                            const isOver = maxQty !== undefined && !isNaN(currentVal) && currentVal > maxQty;
-                            return (
-                              <>
-                                <input
-                                  type="number"
-                                  value={item.qtyReceived}
-                                  onChange={(e) => {
-                                    const raw = e.target.value;
-                                    if (raw === '') {
-                                      handleItemChange(index, 'qtyReceived', raw);
-                                      return;
-                                    }
-                                    const numVal = parseInt(raw, 10);
-                                    if (!isNaN(numVal) && maxQty !== undefined && numVal > maxQty) {
-                                      handleItemChange(index, 'qtyReceived', String(maxQty));
-                                    } else {
-                                      handleItemChange(index, 'qtyReceived', raw);
-                                    }
-                                  }}
-                                  className={`w-full px-2 py-1 border rounded text-sm ${isOver ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                                  required
-                                  min={0}
-                                  max={maxQty}
-                                />
-                                {maxQty !== undefined && (
-                                  <p className={`text-xs mt-0.5 ${isOver ? 'text-red-600 font-semibold' : 'text-gray-400'}`}>
-                                    {isOver ? `⚠ Max allowed: ${maxQty}` : `Available: ${maxQty}`}
-                                  </p>
-                                )}
-                              </>
-                            );
-                          })()}
+                          <input
+                            type="number"
+                            value={item.qtyReceived}
+                            onChange={(e) =>
+                              handleItemChange(index, 'qtyReceived', e.target.value)
+                            }
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                            required
+                            min={0}
+                          />
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -880,7 +863,7 @@ export default function Incoming() {
                     </div>
 
                     {/* Docs to Accounts */}
-                    <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                    <div className={`bg-green-50 p-4 rounded-xl border border-green-100${isLimitedEdit ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                       <h5 className="font-bold text-green-900 mb-3 text-sm uppercase tracking-wider">Documents Submitted to Accounts Dept</h5>
                       <div className="flex flex-wrap gap-4">
                         <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border border-green-200 hover:bg-green-100 transition">
@@ -917,7 +900,7 @@ export default function Incoming() {
                     </div>
 
                     {/* Final Confirmation */}
-                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                    <div className={`bg-orange-50 p-4 rounded-xl border border-orange-100${isLimitedEdit ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                       <h5 className="font-bold text-orange-900 mb-3 text-sm uppercase tracking-wider">Final Confirmation (Before Releasing)</h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -1003,7 +986,7 @@ export default function Incoming() {
                       <h5 className="font-bold text-purple-900 mb-4 text-sm uppercase tracking-wider">Departmental Verifications</h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         {/* Supervisor */}
-                        <div className="space-y-2">
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Supervisor' ? ' pointer-events-none opacity-50' : ''}`}>
                           <label className="block text-xs font-bold text-purple-700 mb-1">Supervisor Name</label>
                           <select
                             value={formData.checklist.certifications.supervisorName}
@@ -1013,74 +996,82 @@ export default function Incoming() {
                             <option value="">Select Supervisor</option>
                             {companyUsers.filter(u => u.department === 'Supervisor').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
-                          <SignaturePad
-                            label="Supervisor Signature"
-                            placeholder="Sign here"
-                            value={formData.supervisorSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, supervisorSignature: dataUrl || '' })}
-                          />
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.supervisorName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="Supervisor Signature"
+                              placeholder="Sign here"
+                              value={formData.supervisorSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, supervisorSignature: dataUrl || '' })}
+                            />
+                          </div>
                         </div>
                         {/* Acc. Dept */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-purple-700 mb-1">Acc. Dept</label>
-                          <select
-                            value={formData.checklist.certifications.accDeptName}
-                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accDeptName: e.target.value } } })}
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
-                          >
-                            <option value="">Select Accountant</option>
-                            {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
-                          </select>
-                          <SignaturePad
-                            label="Acc. Dept Signature"
-                            placeholder="Sign here"
-                            value={formData.accountsSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, accountsSignature: dataUrl || '' })}
-                          />
-                        </div>
+                          <div className={`space-y-2${isLimitedEdit && userDept !== 'Accountant' ? ' pointer-events-none opacity-50' : ''}`}>
+                            <label className="block text-xs font-bold text-purple-700 mb-1">Acc. Dept</label>
+                            <select
+                              value={formData.checklist.certifications.accDeptName}
+                              onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accDeptName: e.target.value } } })}
+                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                            >
+                              <option value="">Select Accountant</option>
+                              {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                            </select>
+                            <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.accDeptName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                              <SignaturePad
+                                label="Acc. Dept Signature"
+                                placeholder="Sign here"
+                                value={formData.accountsSignature}
+                                onChange={(dataUrl) => setFormData({ ...formData, accountsSignature: dataUrl || '' })}
+                              />
+                            </div>
+                          </div>
                         {/* S.C. Exec */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-purple-700 mb-1">Supply Chain Exec</label>
-                          <select
-                            value={formData.checklist.certifications.supplyChainExecName}
-                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value } } })}
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
-                          >
-                            <option value="">Select SC Exec</option>
-                            {companyUsers.filter(u => u.department === 'Supply Chain Exec').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
-                          </select>
-                          <SignaturePad
-                            label="SC Exec Signature"
-                            placeholder="Sign here"
-                            value={formData.supplyChainExecSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, supplyChainExecSignature: dataUrl || '' })}
-                          />
-                        </div>
+                          <div className={`space-y-2${isLimitedEdit && userDept !== 'Supply Chain Exec' ? ' pointer-events-none opacity-50' : ''}`}>
+                            <label className="block text-xs font-bold text-purple-700 mb-1">Supply Chain Exec</label>
+                            <select
+                              value={formData.checklist.certifications.supplyChainExecName}
+                              onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, supplyChainExecName: e.target.value } } })}
+                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                            >
+                              <option value="">Select SC Exec</option>
+                              {companyUsers.filter(u => u.department === 'Supply Chain Exec').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                            </select>
+                            <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.supplyChainExecName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                              <SignaturePad
+                                label="SC Exec Signature"
+                                placeholder="Sign here"
+                                value={formData.supplyChainExecSignature}
+                                onChange={(dataUrl) => setFormData({ ...formData, supplyChainExecSignature: dataUrl || '' })}
+                              />
+                            </div>
+                          </div>
                         {/* Accounts Manager */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-purple-700 mb-1">Accounts Manager</label>
-                          <select
-                            value={formData.checklist.certifications.accountsManagerName}
-                            onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value } } })}
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
-                          >
-                            <option value="">Select Accounts Mgr</option>
-                            {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
-                          </select>
-                          <SignaturePad
-                            label="Accounts Manager Signature"
-                            placeholder="Sign here"
-                            value={formData.accountsManagerSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, accountsManagerSignature: dataUrl || '' })}
-                          />
-                        </div>
+                          <div className={`space-y-2${isLimitedEdit && userDept !== 'Accountant' ? ' pointer-events-none opacity-50' : ''}`}>
+                            <label className="block text-xs font-bold text-purple-700 mb-1">Accounts Manager</label>
+                            <select
+                              value={formData.checklist.certifications.accountsManagerName}
+                              onChange={(e) => setFormData({ ...formData, checklist: { ...formData.checklist, certifications: { ...formData.checklist.certifications, accountsManagerName: e.target.value } } })}
+                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white"
+                            >
+                              <option value="">Select Accounts Mgr</option>
+                              {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
+                            </select>
+                            <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.accountsManagerName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                              <SignaturePad
+                                label="Accounts Manager Signature"
+                                placeholder="Sign here"
+                                value={formData.accountsManagerSignature}
+                                onChange={(dataUrl) => setFormData({ ...formData, accountsManagerSignature: dataUrl || '' })}
+                              />
+                            </div>
+                          </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Notes */}
-                <div>
+                <div className={isLimitedEdit ? 'pointer-events-none opacity-60 select-none' : ''}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Notes
                   </label>

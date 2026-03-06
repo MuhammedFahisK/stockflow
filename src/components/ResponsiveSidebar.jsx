@@ -52,66 +52,86 @@ export default function Sidebar() {
       to: '/',
       icon: LayoutDashboard,
       permission: null,
+      driverVisible: false,
     },
     {
       label: 'Products',
       to: '/products',
       icon: Package,
       permission: PERMISSIONS.PRODUCT_READ,
+      driverVisible: false,
     },
     {
       label: 'Incoming Stock',
       to: '/incoming',
       icon: ArrowDownCircle,
       permission: PERMISSIONS.INCOMING_READ,
+      driverVisible: false,
     },
     {
       label: 'Outgoing Stock',
       to: '/outgoing',
       icon: ArrowUpCircle,
       permission: PERMISSIONS.OUTGOING_READ,
+      driverVisible: true,
     },
     {
       label: 'Returns',
       to: '/returns',
       icon: RotateCcw,
       permission: PERMISSIONS.RETURNS_READ,
+      driverVisible: true,
     },
     {
       label: 'Users',
       to: '/users',
       icon: Users,
       permission: PERMISSIONS.USERS_READ,
+      adminOnly: true,
+      driverVisible: false,
     },
     {
       label: 'Departments',
       to: '/departments',
       icon: Briefcase,
       permission: null,
+      driverVisible: false,
     },
     {
       label: 'Roles',
       to: '/roles',
       icon: Shield,
       permission: PERMISSIONS.ROLES_MANAGE,
+      adminOnly: true,
+      driverVisible: false,
     },
     {
       label: 'Activity Log',
       to: '/activity',
       icon: Activity,
       permission: PERMISSIONS.ACTIVITY_READ,
+      driverVisible: false,
     },
     {
       label: 'Companies',
       to: '/companies',
       icon: Building2,
-      permission: null, // visible to all; only SUPER_ADMIN sees Add button
+      permission: null,
+      driverVisible: true,
     },
   ];
 
-  const filteredNavItems = navItems.filter(
-    (item) => !item.permission || hasPermission(userRole, item.permission)
-  );
+  const filteredNavItems = navItems.filter((item) => {
+    // Driver department: only show items explicitly marked driverVisible
+    if (userDept === 'Driver' && userRole !== 'SUPER_ADMIN') {
+      return item.driverVisible === true;
+    }
+    // adminOnly items: only SUPER_ADMIN
+    if (item.adminOnly && userRole !== 'SUPER_ADMIN') return false;
+    // Permission-gated items
+    if (item.permission && !hasPermission(userRole, item.permission)) return false;
+    return true;
+  });
 
   const companyList = useMemo(() => {
     const list = companies?.length ? companies : userCompany ? [userCompany] : [];

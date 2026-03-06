@@ -113,7 +113,12 @@ export default function Outgoing() {
 
   const canCreate = hasPermission(userRole, PERMISSIONS.OUTGOING_CREATE);
   const canDelete = hasPermission(userRole, PERMISSIONS.OUTGOING_DELETE);
-  const canEdit = userRole === 'SUPER_ADMIN' || userDept === 'Accountant';
+  // Full editors: can change all fields on any shipment
+  const isFullEdit = userRole === 'SUPER_ADMIN' || userDept === 'Accountant' || userDept === 'Supervisor' || userDept === 'Supply Chain Exec';
+  // Any authenticated user may open a shipment to fill their department's section
+  const canEditRecord = () => true;
+  // Driver gets special limited access (their own checklist + vehicle + signature)
+  const isLimitedEdit = !!editingId && !isFullEdit;
   const canMarkDelivered = userRole === 'SUPER_ADMIN' || userDept === 'Driver' || userDept === 'Accountant';
 
   useEffect(() => {
@@ -436,7 +441,7 @@ export default function Outgoing() {
           <p className="text-gray-600 text-sm mt-1">Record stock dispatches and shipments</p>
         </div>
         <div className="flex gap-2">
-          {canCreate && (
+          {canCreate && userDept !== 'Driver' && (
             <button
               onClick={openNewRecord}
               className="bg-gradient-to-r from-orange-600 to-orange-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 hover:shadow-lg transform hover:scale-105 transition-all font-medium"
@@ -554,7 +559,7 @@ export default function Outgoing() {
                         >
                           <Eye size={18} />
                         </button>
-                        {canEdit && (
+                        {canEditRecord(ship) && (
                           <button
                             onClick={() => handleEdit(ship)}
                             className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 p-2 rounded-lg transition inline-block"
@@ -595,7 +600,7 @@ export default function Outgoing() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl my-6">
             <div className="sticky top-0 bg-white border-b p-4 sm:p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold">{editingId ? 'Edit Outgoing Stock Record' : 'Create Outgoing Stock Record'}</h3>
+              <h3 className="text-xl font-bold">{editingId ? (isLimitedEdit ? 'Fill Your Department Signature' : 'Edit Outgoing Stock Record') : 'Create Outgoing Stock Record'}</h3>
               <button
                 onClick={() => { setShowModal(false); setEditingId(null); }}
                 className="text-gray-500 hover:text-gray-700"
@@ -606,8 +611,20 @@ export default function Outgoing() {
 
             <div className="p-4 sm:p-6 max-h-[80vh] overflow-y-auto">
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Limited-edit banner */}
+                {isLimitedEdit && (
+                  <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 flex items-start gap-2 text-sm text-yellow-800">
+                    <span className="text-lg leading-none mt-0.5">🔒</span>
+                    <div>
+                      <strong>Signature Mode</strong> — Main invoice fields are locked.
+                      {userDept === 'Driver'
+                        ? ' As Driver, you can fill the Vehicle No, Driver Checklist, and your signature below.'
+                        : ' Scroll down to Departmental Verifications to add your signature.'}
+                    </div>
+                  </div>
+                )}
                 {/* Header Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg${isLimitedEdit && userDept !== 'Driver' ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Delivery Note No * <span className="text-gray-500 font-normal">(Confirms goods delivered)</span>
@@ -739,7 +756,7 @@ export default function Outgoing() {
                 </div>
 
                 {/* Items Section */}
-                <div className="border-t pt-4">
+                <div className={`border-t pt-4${isLimitedEdit && userDept !== 'Driver' ? ' pointer-events-none opacity-60 select-none' : isLimitedEdit && userDept === 'Driver' ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                   <h4 className="font-semibold mb-4 text-lg">Line Items</h4>
                   {formData.items.map((item, index) => (
                     <div key={index} className="mb-4 p-4 border rounded-lg bg-gray-50 relative">
@@ -861,15 +878,47 @@ export default function Outgoing() {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Qty Dispatched *
                           </label>
-                          <input
-                            type="number"
-                            value={item.qtyDispatched}
-                            onChange={(e) =>
-                              handleItemChange(index, 'qtyDispatched', e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                            required
-                          />
+                          {(() => {
+                            const batches = getBatchOptionsForProduct(item.productName);
+                            const batchObj = batches.find(b => b.batchNo === item.batchNo);
+                            const maxQty = batchObj?.qty
+                              ? parseInt(batchObj.qty, 10)
+                              : batches.length > 0
+                                ? batches.reduce((s, b) => s + parseInt(b.qty || 0, 10), 0)
+                                : undefined;
+                            const currentVal = parseInt(item.qtyDispatched || 0, 10);
+                            const isOver = maxQty !== undefined && !isNaN(currentVal) && currentVal > maxQty;
+                            return (
+                              <>
+                                <input
+                                  type="number"
+                                  value={item.qtyDispatched}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === '') {
+                                      handleItemChange(index, 'qtyDispatched', raw);
+                                      return;
+                                    }
+                                    const numVal = parseInt(raw, 10);
+                                    if (!isNaN(numVal) && maxQty !== undefined && numVal > maxQty) {
+                                      handleItemChange(index, 'qtyDispatched', String(maxQty));
+                                    } else {
+                                      handleItemChange(index, 'qtyDispatched', raw);
+                                    }
+                                  }}
+                                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 ${isOver ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                                  required
+                                  min={0}
+                                  max={maxQty}
+                                />
+                                {maxQty !== undefined && (
+                                  <p className={`text-xs mt-0.5 ${isOver ? 'text-red-600 font-semibold' : 'text-gray-400'}`}>
+                                    {isOver ? `⚠ Max allowed: ${maxQty}` : `Available: ${maxQty}`}
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center mt-1 md:mt-6">
                           <label className="inline-flex items-center text-xs font-medium text-gray-700">
@@ -906,7 +955,7 @@ export default function Outgoing() {
 
                   <div className="space-y-6">
                     {/* Warehouse Dispatch Checklist */}
-                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                    <div className={`bg-orange-50 p-4 rounded-xl border border-orange-100${isLimitedEdit && userDept !== 'Driver' ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                       <h5 className="font-bold text-orange-900 mb-3 text-sm uppercase tracking-wider underline">Warehouse PO Dispatch Checklist</h5>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1028,7 +1077,7 @@ export default function Outgoing() {
                     </div>
 
                     {/* Driver Checklist Section */}
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <div className={`bg-blue-50 p-4 rounded-xl border border-blue-100${isLimitedEdit && userDept !== 'Driver' ? ' pointer-events-none opacity-60 select-none' : ''}`}>
                       <h5 className="font-bold text-blue-900 mb-3 text-sm uppercase tracking-wider underline">Driver Checklist (Section A - Loading)</h5>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                         {Object.keys(formData.checklist.driverChecklist).map((key) => (
@@ -1056,7 +1105,7 @@ export default function Outgoing() {
                       <h5 className="font-bold text-purple-900 mb-4 text-sm uppercase tracking-wider">Departmental Verifications</h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                         {/* Supervisor */}
-                        <div className="space-y-2">
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Supervisor' ? ' pointer-events-none opacity-50' : ''}`}>
                           <label className="block text-xs font-bold text-purple-700 mb-1">Supervisor</label>
                           <select
                             value={formData.checklist.certifications.supervisorName}
@@ -1066,15 +1115,17 @@ export default function Outgoing() {
                             <option value="">Select</option>
                             {companyUsers.filter(u => u.department === 'Supervisor').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
-                          <SignaturePad
-                            label="Supervisor Signature"
-                            placeholder="Sign here"
-                            value={formData.supervisorSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, supervisorSignature: dataUrl || '' })}
-                          />
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.supervisorName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="Supervisor Signature"
+                              placeholder="Sign here"
+                              value={formData.supervisorSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, supervisorSignature: dataUrl || '' })}
+                            />
+                          </div>
                         </div>
                         {/* Acc. Dept */}
-                        <div className="space-y-2">
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Accountant' ? ' pointer-events-none opacity-50' : ''}`}>
                           <label className="block text-xs font-bold text-purple-700 mb-1">Acc. Dept</label>
                           <select
                             value={formData.checklist.certifications.accountantName}
@@ -1084,15 +1135,17 @@ export default function Outgoing() {
                             <option value="">Select</option>
                             {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
-                          <SignaturePad
-                            label="Acc. Dept Signature"
-                            placeholder="Sign here"
-                            value={formData.accountsSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, accountsSignature: dataUrl || '' })}
-                          />
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.accountantName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="Acc. Dept Signature"
+                              placeholder="Sign here"
+                              value={formData.accountsSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, accountsSignature: dataUrl || '' })}
+                            />
+                          </div>
                         </div>
                         {/* S.C. Exec */}
-                        <div className="space-y-2">
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Supply Chain Exec' ? ' pointer-events-none opacity-50' : ''}`}>
                           <label className="block text-xs font-bold text-purple-700 mb-1">S.C. Exec</label>
                           <select
                             value={formData.checklist.certifications.supplyChainExecName}
@@ -1102,15 +1155,17 @@ export default function Outgoing() {
                             <option value="">Select</option>
                             {companyUsers.filter(u => u.department === 'Supply Chain Exec').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
-                          <SignaturePad
-                            label="SC Exec Signature"
-                            placeholder="Sign here"
-                            value={formData.supplyChainExecSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, supplyChainExecSignature: dataUrl || '' })}
-                          />
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.supplyChainExecName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="SC Exec Signature"
+                              placeholder="Sign here"
+                              value={formData.supplyChainExecSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, supplyChainExecSignature: dataUrl || '' })}
+                            />
+                          </div>
                         </div>
                         {/* Acc. Manager */}
-                        <div className="space-y-2">
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Accountant' ? ' pointer-events-none opacity-50' : ''}`}>
                           <label className="block text-xs font-bold text-purple-700 mb-1">Acc. Manager</label>
                           <select
                             value={formData.checklist.certifications.accountsManagerName}
@@ -1120,15 +1175,17 @@ export default function Outgoing() {
                             <option value="">Select</option>
                             {companyUsers.filter(u => u.department === 'Accountant').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
-                          <SignaturePad
-                            label="Accounts Manager Signature"
-                            placeholder="Sign here"
-                            value={formData.accountsManagerSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, accountsManagerSignature: dataUrl || '' })}
-                          />
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.accountsManagerName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="Accounts Manager Signature"
+                              placeholder="Sign here"
+                              value={formData.accountsManagerSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, accountsManagerSignature: dataUrl || '' })}
+                            />
+                          </div>
                         </div>
                         {/* Driver */}
-                        <div className="space-y-2">
+                        <div className={`space-y-2${isLimitedEdit && userDept !== 'Driver' ? ' pointer-events-none opacity-50' : ''}`}>
                           <label className="block text-xs font-bold text-purple-700 mb-1">Driver</label>
                           <select
                             value={formData.checklist.certifications.driverName}
@@ -1138,12 +1195,14 @@ export default function Outgoing() {
                             <option value="">Select Driver</option>
                             {companyUsers.filter(u => u.department === 'Driver').map((u, i) => <option key={i} value={u.fullName}>{u.fullName}</option>)}
                           </select>
-                          <SignaturePad
-                            label="Driver Signature"
-                            placeholder="Sign here"
-                            value={formData.driverSignature}
-                            onChange={(dataUrl) => setFormData({ ...formData, driverSignature: dataUrl || '' })}
-                          />
+                          <div className={userRole !== 'SUPER_ADMIN' && userName !== formData.checklist.certifications.driverName ? 'pointer-events-none opacity-50 select-none' : ''}>
+                            <SignaturePad
+                              label="Driver Signature"
+                              placeholder="Sign here"
+                              value={formData.driverSignature}
+                              onChange={(dataUrl) => setFormData({ ...formData, driverSignature: dataUrl || '' })}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1151,7 +1210,7 @@ export default function Outgoing() {
                 </div>
 
                 {/* Notes */}
-                <div>
+                <div className={isLimitedEdit ? 'pointer-events-none opacity-60 select-none' : ''}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Notes
                   </label>
